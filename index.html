@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulatore Box Pratolungo — Gestione economica</title>
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--ink:#1a2233;--mut:#6b7385;--acc:#1f5fbf;--ok:#1d7a3e;--ko:#b23231;--bd:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:1150px;font:14px/1.45 -apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);padding:18px 16px 40px}
+h1{font-size:20px;margin:0 0 3px}
+h2{font-size:13px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.sub{color:var(--mut);font-size:12px;margin-bottom:4px;max-width:900px}
+.saveinfo{font-size:12px;color:var(--mut);margin-bottom:2px}
+.saveinfo b{color:var(--ink)}
+.cloudline{font-size:12px;margin-bottom:16px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+details.card{padding:10px 18px}
+details.card[open]{padding:10px 18px 16px}
+label{display:block;font-size:11px;color:var(--mut);margin-bottom:3px;white-space:nowrap}
+input,select{padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font:inherit;background:#fbfcff;width:100%}
+input:focus{outline:2px solid #bcd3f5}
+input:disabled{background:#eef0f4;color:var(--mut)}
+input[type=checkbox]{width:18px;height:18px;cursor:pointer;vertical-align:middle}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;font-size:12.5px;width:100%}
+th{text-align:left;color:var(--mut);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:4px 8px;border-bottom:1px solid #eef0f4;white-space:nowrap;vertical-align:middle}
+td input{padding:4px 6px;font-size:12.5px}
+input.dt{width:145px} input.n1{width:105px} input.n2{width:65px} input.tx{width:100%;min-width:230px}
+select.tp{width:95px;padding:4px 6px;font-size:12.5px}
+.num{text-align:right}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.kpi .card{margin:0;padding:11px 14px}
+.kpi .v{font-size:19px;font-weight:700;margin-top:2px}
+.kpi .l{font-size:11px;color:var(--mut)}
+.ok{color:var(--ok)} .ko{color:#b23231}
+.badge{display:inline-block;padding:3px 12px;border-radius:20px;font-weight:700;font-size:13px}
+.badge.ok{background:#e2f3e8;color:var(--ok)} .badge.ko{background:#fae4e4;color:#b23231}
+button{background:var(--acc);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.sec{background:#e8edf6;color:var(--acc)}
+button:hover{filter:brightness(1.08)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.small{font-size:11px;color:var(--mut)}
+summary{cursor:pointer;font-weight:600;color:var(--acc);padding:6px 0;font-size:13.5px}
+.neg{color:#b23231;font-weight:600}
+#chart{width:100%;height:340px}
+.warn{background:#fff8e1;border:1px solid #f0e0a0;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:10px}
+.del{background:none;border:0;color:#b23231;cursor:pointer;font-size:14px;padding:0 4px}
+tr.todo td{background:#fff6d9}
+.eff{color:var(--ok);font-weight:700}
+.prev{color:var(--mut)}
+.late{color:#a8760a;font-weight:600}
+.note{font-size:11px;color:var(--mut);margin-top:10px}
+#lock{position:fixed;inset:0;background:rgba(20,26,38,.97);z-index:50;display:none;align-items:center;justify-content:center}
+#lock .card{width:360px}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="card">
+    <h2>Simulatore Box Pratolungo</h2>
+    <div class="small" id="lockMsg">Dati protetti: inserisci la tua password personale.</div>
+    <input type="password" id="lockPw" placeholder="Password" style="margin:12px 0" autocomplete="current-password">
+    <button id="btnLogin" style="width:100%">Entra</button>
+    <div class="small" id="lockErr" style="color:#b23231;margin-top:8px"></div>
+  </div>
+</div>
+
+<h1>Simulatore economico — Box Pratolungo</h1>
+<div class="sub">Appalto principale + nuove uscite previste + vendite box (anticipo alla prenotazione, saldo al rogito). IVA trimestrale per cassa. La colonna <b>Eff.</b> consolida i movimenti realmente avvenuti. I dati sono cifrati sul cloud e si sbloccano con la password personale.</div>
+<div class="saveinfo" id="saveInfo"></div>
+<div class="cloudline" id="cloudStatus">Caricamento dati dal cloud…</div>
+
+<div class="kpi">
+  <div class="card"><div class="l">Verdetto</div><div class="v" id="kVerd"></div></div>
+  <div class="card"><div class="l">Cassa effettiva ad oggi</div><div class="v" id="kEff"></div><div class="small" id="kEffN"></div></div>
+  <div class="card"><div class="l">Box venduti (scenario)</div><div class="v" id="kBox"></div></div>
+  <div class="card"><div class="l">Cassa minima</div><div class="v" id="kMin"></div><div class="small" id="kMinD"></div></div>
+  <div class="card"><div class="l">Cassa finale</div><div class="v" id="kFin"></div></div>
+</div>
+
+<div class="card">
+  <h2>Andamento cassa</h2>
+  <svg id="chart" preserveAspectRatio="none"></svg>
+  <div class="small">Linea blu: cassa progressiva. Verticale verde: oggi. Tratteggio rosso: margine di sicurezza.</div>
+  <div id="warnBox"></div>
+</div>
+
+<div class="card">
+  <h2>Parametri</h2>
+  <div class="fields">
+    <div><label>Capitale iniziale al 07/07/2026 (€)</label><input type="number" id="cap0" value="0" step="100"></div>
+    <div><label>Data odierna (consolidamento)</label><input type="date" id="oggi" value="2026-07-09"></div>
+    <div><label>Prezzo medio box (imponibile €)</label><input type="number" id="prezzo" value="65000" step="1000"></div>
+    <div><label>IVA vendita box (%)</label><input type="number" id="ivabox" value="22" step="1"></div>
+    <div><label>Anticipo alla prenotazione (%)</label><input type="number" id="ant" value="20" step="5"></div>
+    <div><label>Data rogito (saldi)</label><input type="date" id="rogito" value="2028-01-15"></div>
+    <div><label>Margine sicurezza cassa (€)</label><input type="number" id="margine" value="0" step="5000"></div>
+    <div><label>Interesse trim. IVA (%)</label><input type="number" id="intiva" value="1" step="0.1"></div>
+    <div><label>Utente (dalla password)</label><input type="text" id="utente" value="—" disabled></div>
+  </div>
+  <div class="note">NB: acconti incassati da persone fisiche prima del rogito richiedono fideiussione ex D.lgs 122/2005 — da verificare col notaio. I movimenti con data passata e non consolidati sono evidenziati in giallo (da riconciliare).</div>
+</div>
+
+<div class="card">
+  <h2>Vendite box per trimestre</h2>
+  <div class="tw"><table id="tabVend"><thead><tr><th>Data incasso anticipo</th><th>N. box</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="btns">
+    <button class="sec" id="btnAddQ">+ trimestre</button>
+    <button id="btnMin">Trova N minimo di box</button>
+    <span class="small">Mantiene fissi i trimestri consolidati e distribuisce i box aggiuntivi sugli altri, cercando il minimo che tiene la cassa ≥ margine.</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Nuove uscite previste</h2>
+  <div class="tw"><table id="tabUsc"><thead><tr><th>Descrizione</th><th>Data</th><th>Imponibile €</th><th>IVA %</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="btns"><button class="sec" id="btnAddU">+ voce</button>
+    <span class="small">Assicurazioni esenti IVA (importo = totale). Voci «con IVA» → imponibile + aliquota: l'IVA pagata va a credito.</span></div>
+</div>
+
+<details class="card" open><summary>Movimenti appalto / affitti (modificabili)</summary>
+  <div class="tw"><table id="tabBase"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th>Imponibile €</th><th>IVA %</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="btns"><button class="sec" id="btnAddB">+ movimento</button></div>
+</details>
+
+<details class="card"><summary>Liquidazioni IVA trimestrali (per cassa)</summary>
+  <div class="tw"><table id="tabIva"><thead><tr><th>Periodo</th><th>Scadenza</th><th class="num">Debito</th><th class="num">Credito</th><th class="num">Riporto</th><th class="num">Versamento (+int.)</th><th class="num">Credito a nuovo</th></tr></thead><tbody></tbody></table></div>
+</details>
+
+<details class="card" open><summary>Movimenti di cassa (cronologici)</summary>
+  <div class="tw"><table id="tabMov"><thead><tr><th>Data</th><th>Voce</th><th>Stato</th><th class="num">Entrata</th><th class="num">Uscita</th><th class="num">Cassa</th></tr></thead><tbody></tbody></table></div>
+</details>
+
+<details class="card"><summary>Log modifiche</summary>
+  <div class="tw"><table id="tabLog"><thead><tr><th>Quando</th><th>Chi</th><th>Azione</th></tr></thead><tbody></tbody></table></div>
+  <div class="btns"><button class="sec" id="btnClearLog">Svuota log</button></div>
+</details>
+
+<div class="card">
+  <h2>Salvataggio</h2>
+  <div class="btns">
+    <button id="btnSaveCloud">Salva su cloud</button>
+    <button class="sec" id="btnReload">Ricarica dal cloud</button>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--mut);white-space:nowrap;margin:0"><input type="checkbox" id="chkBackup" checked style="width:16px;height:16px"> scarica anche backup locale</label>
+    <button class="sec" id="btnExp">Esporta scenario (JSON)</button>
+    <button class="sec" id="btnImp">Importa scenario</button>
+    <input type="file" id="fileImp" accept=".json" style="display:none;width:auto">
+  </div>
+  <div class="note"><b>Come funziona:</b> chi apre la pagina inserisce solo la propria password: i dati arrivano dal cloud cifrati e vengono sbloccati in locale; la password identifica anche l'utente nei salvataggi e nel log. «Salva su cloud» ricifra e pubblica. Il backup locale (JSON) è in chiaro: conservarlo in un posto sicuro.</div>
+</div>
+
+<div class="card" id="setupCard" style="display:none">
+  <h2 id="setupTitle">Attiva protezione (prima configurazione)</h2>
+  <div class="small">I dati verranno cifrati (AES-256) e sbloccabili con due password personali. La password usata all'accesso determina l'utente. Il token GitHub viene custodito dentro i dati cifrati: nessuno dei due dovrà più incollarlo.</div>
+  <div class="fields" style="margin-top:12px">
+    <div><label>Nome utente 1</label><input type="text" id="suNome1" value="PC CARLO"></div>
+    <div><label>Password utente 1</label><input type="password" id="suPw1" autocomplete="new-password"></div>
+    <div><label>Nome utente 2</label><input type="text" id="suNome2" value="PC PAPÀ"></div>
+    <div><label>Password utente 2</label><input type="password" id="suPw2" autocomplete="new-password"></div>
+    <div><label>Token GitHub (Contents: read-write)</label><input type="password" id="suToken" autocomplete="off"></div>
+  </div>
+  <div class="btns"><button id="btnSetup">Attiva protezione e salva su cloud</button></div>
+  <div class="small" style="margin-top:6px">Consiglio: password non banali (almeno 8-10 caratteri): proteggono sia i dati sia il token. Se le dimenticate entrambe, i dati cifrati non sono recuperabili: tenere un backup JSON locale.</div>
+</div>
+
+<script>
+'use strict';
+// ================== CONFIGURAZIONE CLOUD ==================
+const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
+const APP_VER = '5.1 privata del 09/07/2026';
+// ==========================================================
+// base: [data, voce, E/U, imponibile, aliquota%, effettivo 0/1]
+// usc:  [descrizione, data, imponibile, aliquota%, effettivo]
+// vend: [data, n. box, effettivo]
+const DEF = {
+ base: [], usc: [], vend: [],
+ par: {cap0:0, oggi:'2026-07-09', prezzo:65000, ivabox:22, ant:20, rogito:'2028-01-15', margine:0, intiva:1, utente:'—'},
+ log: [],
+ meta: {saveT:null, saveU:null}
+};
+let S = JSON.parse(JSON.stringify(DEF));
+
+function normalizza(){
+  S.base.forEach(r=>{ if(r.length<6) r[5]=0; });
+  S.usc.forEach(r=>{ if(r.length<5) r[4]=0; });
+  S.vend.forEach(r=>{ if(r.length<3) r[2]=0; });
+  if(!S.par.oggi) S.par.oggi='2026-07-09';
+  if(!S.par.utente) S.par.utente='—';
+  if(!Array.isArray(S.log)) S.log=[];
+  if(!S.meta) S.meta={saveT:null,saveU:null};
+}
+
+const eur = v => v.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const dIT = s => { const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; };
+const dTime = iso => { const d=new Date(iso);
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+const dOggi=()=>new Date().toISOString().slice(2,10).replace(/-/g,'');
+
+// ---------------- log ----------------
+function log(msg){
+  S.log.unshift({t:new Date().toISOString(), u:S.par.utente||'—', msg});
+  if(S.log.length>200) S.log.length=200;
+}
+function renderLog(){
+  const tl=document.querySelector('#tabLog tbody'); tl.innerHTML='';
+  for(const e of S.log.slice(0,100)){
+    const tr=document.createElement('tr');
+    for(const v of [dTime(e.t), e.u, e.msg]){ const c=document.createElement('td'); c.textContent=v; tr.append(c); }
+    tl.append(tr);
+  }
+}
+function renderSaveInfo(){
+  const el=document.getElementById('saveInfo');
+  const v='Versione app: <b>'+APP_VER+'</b> · ';
+  el.innerHTML = v + (S.meta.saveT
+    ? 'Ultimo salvataggio: <b>'+dTime(S.meta.saveT)+'</b> — <b>'+S.meta.saveU+'</b>'
+    : 'nessun salvataggio registrato.');
+}
+function segnaSalvataggio(tipo){
+  S.meta={saveT:new Date().toISOString(), saveU:S.par.utente||'—'};
+  log(tipo);
+}
+
+// ---------------- crittografia ----------------
+const txe=new TextEncoder(), txd=new TextDecoder();
+const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a)));
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pw,salt,iter){
+  const km=await crypto.subtle.importKey('raw',txe.encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function aesEnc(key,buf){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,buf);
+  return {iv:b64(iv),ct:b64(ct)};
+}
+async function aesDec(key,obj){
+  return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(obj.iv)},key,unb64(obj.ct));
+}
+
+// ---------------- cloud (GitHub, dati cifrati) ----------------
+let ghToken=null, remoteSha=null, masterKey=null, cloudDoc=null, currentUser=null;
+function setCloudStatus(msg,ok){ const el=document.getElementById('cloudStatus'); if(el){ el.textContent=msg; el.style.color=ok?'#1d7a3e':'#a8760a'; } }
+function apiURL(){ return 'https://api.github.com/repos/'+CONFIG.owner+'/'+CONFIG.repo+'/contents/'+CONFIG.file; }
+
+async function caricaCloud(silente){
+  try{
+    const r=await fetch(apiURL()+'?ref='+CONFIG.branch+'&_='+Date.now(),{headers:{Accept:'application/vnd.github+json'}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    remoteSha=j.sha;
+    const doc=JSON.parse(txd.decode(unb64(j.content.replace(/\n/g,''))));
+    if(doc.users && doc.payload){
+      cloudDoc=doc;
+      if(masterKey){ await sbloccaPayload(); setCloudStatus('✓ Dati ricaricati dal cloud — accesso come '+currentUser,true); }
+      else { document.getElementById('lock').style.display='flex'; document.getElementById('lockPw').focus(); setCloudStatus('Dati cifrati caricati: inserire la password.',true); }
+    } else if(doc.users && !doc.payload){
+      cloudDoc=doc;
+      setCloudStatus('Struttura protetta senza dati: completare la configurazione.',false);
+      document.getElementById('setupCard').style.display='block';
+    } else {
+      // formato in chiaro (prima configurazione)
+      S=doc; normalizza(); buildTables(); refresh();
+      document.getElementById('setupCard').style.display='block';
+      setCloudStatus('⚠ Dati NON ancora protetti: importare lo scenario se necessario e attivare la protezione qui sotto.',false);
+    }
+    return true;
+  }catch(e){
+    if(String(e.message).indexOf('404')>=0){
+      document.getElementById('setupCard').style.display='block';
+      setCloudStatus('Primo avvio: il file dati non esiste ancora. Importare lo scenario e attivare la protezione qui sotto (il file verrà creato già cifrato).',false);
+      return false;
+    }
+    if(!silente) alert('Caricamento dal cloud non riuscito: '+e.message);
+    setCloudStatus('⚠ Dati cloud non disponibili ('+e.message+').',false);
+    return false;
+  }
+}
+async function sbloccaPayload(){
+  const payload=JSON.parse(txd.decode(await aesDec(masterKey,cloudDoc.payload)));
+  ghToken=payload.token||null;
+  S=payload.S; normalizza();
+  if(currentUser) S.par.utente=currentUser;
+  buildTables(); refresh();
+}
+async function tentaLogin(){
+  const pw=document.getElementById('lockPw').value;
+  const err=document.getElementById('lockErr');
+  if(!pw){ err.textContent='Inserire la password.'; return; }
+  err.textContent='Verifica…';
+  for(const u of cloudDoc.users){
+    try{
+      const dk=await deriveKey(pw,unb64(u.salt),u.iter||600000);
+      const raw=await aesDec(dk,u.wrap);
+      masterKey=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+      currentUser=u.name;
+      await sbloccaPayload();
+      document.getElementById('lock').style.display='none';
+      document.getElementById('lockPw').value='';
+      err.textContent='';
+      log('Accesso di '+currentUser);
+      renderLog();
+      setCloudStatus('✓ Dati caricati dal cloud — accesso come '+currentUser+(S.meta.saveT?(' · ultimo salvataggio '+dTime(S.meta.saveT)+' ('+S.meta.saveU+')'):''),true);
+      return;
+    }catch(e){}
+  }
+  err.textContent='Password non riconosciuta.';
+}
+async function salvaCloud(){
+  if(!cloudDoc || !cloudDoc.users || !masterKey){ alert('Prima attivare la protezione (riquadro in fondo alla pagina).'); return; }
+  if(!ghToken){ alert('Token GitHub non presente nei dati cifrati: riattivare la protezione.'); return; }
+  segnaSalvataggio('Salvato su cloud');
+  renderSaveInfo();
+  const payload=await aesEnc(masterKey,txe.encode(JSON.stringify({token:ghToken,S})));
+  const contenuto=JSON.stringify({v:1,users:cloudDoc.users,payload},null,1);
+  const body={message:'Salvataggio '+(S.par.utente||'')+' — '+new Date().toISOString(),content:b64(txe.encode(contenuto)),branch:CONFIG.branch};
+  try{
+    try{
+      const r0=await fetch(apiURL()+'?ref='+CONFIG.branch+'&_='+Date.now());
+      if(r0.ok) body.sha=(await r0.json()).sha;
+    }catch(e0){}
+    if(!body.sha && remoteSha) body.sha=remoteSha;
+    const r=await fetch(apiURL(),{
+      method:'PUT',
+      headers:{Authorization:'Bearer '+ghToken,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+(r.status===401?' — token non valido o scaduto':r.status===404?' — repo non trovato o permessi mancanti':''));
+    const j=await r.json(); remoteSha=j.content.sha;
+    cloudDoc.payload=payload;
+    if(document.getElementById('chkBackup').checked){
+      const a=document.createElement('a');
+      a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(S,null,1));
+      a.download=dOggi()+'_backup_scenario_box_pratolungo.json'; a.click();
+    }
+    setCloudStatus('✓ Salvato sul cloud (cifrato) — '+dTime(new Date().toISOString())+' ('+S.par.utente+')',true);
+    refresh();
+  }catch(e){ alert('Salvataggio sul cloud non riuscito: '+e.message); }
+}
+async function attivaProtezione(){
+  const n1=document.getElementById('suNome1').value.trim(), p1=document.getElementById('suPw1').value;
+  const n2=document.getElementById('suNome2').value.trim(), p2=document.getElementById('suPw2').value;
+  const tk=document.getElementById('suToken').value.trim();
+  if(!n1||!p1||!n2||!p2||!tk){ alert('Compilare nomi, password e token.'); return; }
+  if(p1===p2){ alert('Le due password devono essere diverse (identificano chi lavora).'); return; }
+  const raw=crypto.getRandomValues(new Uint8Array(32));
+  masterKey=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+  const users=[];
+  for(const [nm,pw] of [[n1,p1],[n2,p2]]){
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const dk=await deriveKey(pw,salt,600000);
+    users.push({name:nm,salt:b64(salt),iter:600000,wrap:await aesEnc(dk,raw)});
+  }
+  cloudDoc={v:1,users,payload:null};
+  ghToken=tk; currentUser=n1; S.par.utente=n1;
+  log('Protezione attivata: utenti '+n1+' / '+n2);
+  document.getElementById('setupCard').style.display='none';
+  document.getElementById('suPw1').value=''; document.getElementById('suPw2').value=''; document.getElementById('suToken').value='';
+  await salvaCloud();
+}
+
+// ---------------- motore di calcolo ----------------
+function scadIVA(y,q){ return [null,y+'-05-16',y+'-08-20',y+'-11-16',(y+1)+'-03-16'][q]; }
+function quarterOf(ds){ const [y,m]=ds.split('-').map(Number); return {y, q: Math.floor((m-1)/3)+1}; }
+
+function calcola(vend){
+  vend = vend || S.vend;
+  const p = S.par;
+  const inc=[], out=[];
+  for(const [d,v,t,imp,al,eff] of S.base){
+    if(!d||!imp) continue;
+    (t==='E'?inc:out).push({d, voce:v, imp:+imp, iva:+imp*al/100, eff:eff?1:0});
+  }
+  for(const [desc,d,imp,al,eff] of S.usc){
+    if(!d||!imp) continue;
+    out.push({d, voce:desc, imp:+imp, iva:+imp*al/100, eff:eff?1:0});
+  }
+  let totBox=0;
+  for(const [d,n,eff] of vend){
+    if(!d||!n) continue; totBox+=+n;
+    const imp = n*p.prezzo*p.ant/100;
+    inc.push({d, voce:'Anticipo '+n+' box', imp, iva: imp*p.ivabox/100, eff:eff?1:0});
+  }
+  if(totBox>0){
+    const imp = totBox*p.prezzo*(1-p.ant/100);
+    inc.push({d:p.rogito, voce:'Saldo '+totBox+' box al rogito', imp, iva: imp*p.ivabox/100, eff:0});
+  }
+  const deb={}, cred={};
+  for(const m of inc){ const {y,q}=quarterOf(m.d); deb[y*4+q]=(deb[y*4+q]||0)+m.iva; }
+  for(const m of out){ const {y,q}=quarterOf(m.d); cred[y*4+q]=(cred[y*4+q]||0)+m.iva; }
+  const keys=[...new Set([...Object.keys(deb),...Object.keys(cred)].map(Number))].sort((a,b)=>a-b);
+  const liq=[]; let carry=0;
+  for(const k of keys){
+    const q=((k-1)%4)+1, y=(k-q)/4;
+    const D=deb[k]||0, C=cred[k]||0, rip=carry;
+    const net=D-C-rip;
+    const vers=Math.max(0,net), intv=vers*p.intiva/100;
+    carry=Math.max(0,-net);
+    liq.push({per:q+'T '+y, scad:scadIVA(y,q), deb:D, cred:C, rip, vers:vers+intv, carry});
+  }
+  const mov=[{d:'2026-07-07',voce:'Capitale iniziale',m:p.cap0,eff:1}];
+  for(const m of inc) mov.push({d:m.d,voce:m.voce,m:m.imp+m.iva,eff:m.eff});
+  for(const m of out) mov.push({d:m.d,voce:m.voce,m:-(m.imp+m.iva),eff:m.eff});
+  for(const l of liq) if(l.vers>0.005) mov.push({d:l.scad,voce:'Versamento IVA '+l.per,m:-l.vers,eff:0});
+  mov.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  let c=0; for(const m of mov){ c+=m.m; m.cassa=c; }
+  const byd=new Map(); for(const m of mov) byd.set(m.d,m.cassa);
+  let minV=Infinity, minD=null;
+  for(const [d,v] of byd) if(v<minV){minV=v;minD=d;}
+  let cassaEff=0, nEff=0, overdue=0;
+  for(const m of mov){
+    if(m.eff){ cassaEff+=m.m; nEff++; }
+    else if(m.d<=p.oggi) overdue++;
+    m.late = (!m.eff && m.d<=p.oggi);
+  }
+  return {mov, liq, totBox, minV, minD, fin:c, cassaEff, nEff, overdue};
+}
+
+function trovaMinimo(){
+  const fixed = S.vend.filter(v=>v[2] && v[1]>0);
+  const varDates = S.vend.filter(v=>!v[2]).map(v=>v[0]).filter(Boolean).sort();
+  if(!varDates.length) return null;
+  for(let k=0;k<=80;k++){
+    const counts=varDates.map(()=>0);
+    for(let j=0;j<k;j++) counts[j%varDates.length]++;
+    const trial = fixed.concat(varDates.map((d,i)=>[d,counts[i],0]));
+    const r=calcola(trial);
+    if(r.minV>=S.par.margine && r.fin>=S.par.margine){
+      S.vend = trial.sort((a,b)=>a[0]<b[0]?-1:1);
+      return r.totBox;
+    }
+  }
+  return null;
+}
+
+// ---------------- UI ----------------
+function inp(val,type,cb,cls,lbl){
+  const i=document.createElement('input'); i.type=type||'text'; i.value=val;
+  if(type==='number') i.step='any';
+  if(cls) i.className=cls;
+  let prev=val;
+  i.addEventListener('change',()=>{
+    cb(i.value);
+    if(lbl) log(lbl+': '+prev+' → '+i.value);
+    prev=i.value;
+    refresh();
+  });
+  return i;
+}
+function chk(val,cb,lbl){
+  const i=document.createElement('input'); i.type='checkbox'; i.checked=!!val;
+  i.title='Movimento effettivamente avvenuto (consolidato)';
+  i.addEventListener('change',()=>{
+    cb(i.checked?1:0);
+    if(lbl) log(lbl+(i.checked?' — consolidato (effettivo)':' — riportato a previsto'));
+    refresh();
+  });
+  return i;
+}
+function td(el){ const t=document.createElement('td'); t.append(el); return t; }
+function delBtn(arr,i,lbl){ const b=document.createElement('button'); b.className='del'; b.textContent='✕'; b.title='Elimina riga';
+  b.onclick=()=>{arr.splice(i,1); log('Eliminata riga: '+lbl); buildTables(); refresh();}; return b; }
+
+function buildTables(){
+  normalizza();
+  const tv=document.querySelector('#tabVend tbody'); tv.innerHTML='';
+  S.vend.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    const lbl='Vendite '+(row[0]?dIT(row[0]):'(senza data)');
+    tr.append(td(inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data')),
+      td(inp(row[1],'number',v=>row[1]=+v,'n2',lbl+' — n. box')),
+      td(chk(row[2],v=>row[2]=v,lbl)), td(delBtn(S.vend,i,lbl)));
+    tv.append(tr);
+  });
+  const tu=document.querySelector('#tabUsc tbody'); tu.innerHTML='';
+  S.usc.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    const lbl='Uscita «'+row[0]+'»';
+    tr.append(td(inp(row[0],'text',v=>row[0]=v,'tx',lbl+' — descrizione')),
+      td(inp(row[1],'date',v=>row[1]=v,'dt',lbl+' — data')),
+      td(inp(row[2],'number',v=>row[2]=+v,'n1',lbl+' — imponibile')),
+      td(inp(row[3],'number',v=>row[3]=+v,'n2',lbl+' — IVA %')),
+      td(chk(row[4],v=>row[4]=v,lbl)), td(delBtn(S.usc,i,lbl)));
+    tu.append(tr);
+  });
+  const tb=document.querySelector('#tabBase tbody'); tb.innerHTML='';
+  S.base.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    if(!row[5] && row[0]<=S.par.oggi) tr.className='todo';
+    const lbl='Movimento «'+row[1]+'»';
+    const sel=document.createElement('select'); sel.className='tp';
+    sel.innerHTML='<option value="E">Entrata</option><option value="U">Uscita</option>'; sel.value=row[2];
+    sel.addEventListener('change',()=>{row[2]=sel.value; log(lbl+' — tipo: '+(sel.value==='E'?'Entrata':'Uscita')); refresh();});
+    tr.append(td(inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data')),
+      td(inp(row[1],'text',v=>row[1]=v,'tx',lbl+' — voce')), td(sel),
+      td(inp(row[3],'number',v=>row[3]=+v,'n1',lbl+' — imponibile')),
+      td(inp(row[4],'number',v=>row[4]=+v,'n2',lbl+' — IVA %')),
+      td(chk(row[5],v=>row[5]=v,lbl)), td(delBtn(S.base,i,lbl)));
+    tb.append(tr);
+  });
+  for(const k of Object.keys(S.par)){ const el=document.getElementById(k); if(el) el.value=S.par[k]; }
+}
+
+function drawChart(mov, margine, oggi){
+  const svg=document.getElementById('chart'); svg.innerHTML='';
+  if(!mov.length) return;
+  const W=1100,H=340,padL=80,padR=15,padT=12,padB=28;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const t0=new Date(mov[0].d).getTime(), t1=new Date(mov[mov.length-1].d).getTime();
+  let lo=Math.min(margine,...mov.map(m=>m.cassa)), hi=Math.max(margine,...mov.map(m=>m.cassa));
+  const span=(hi-lo)||1; lo-=span*.06; hi+=span*.06;
+  const X=t=>padL+(t-t0)/(t1-t0||1)*(W-padL-padR);
+  const Y=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
+  let g='';
+  const step=Math.pow(10,Math.floor(Math.log10((hi-lo)/5)));
+  const nice=[1,2,2.5,5,10].map(m=>m*step).find(s=>(hi-lo)/s<=8)||step;
+  for(let v=Math.ceil(lo/nice)*nice; v<=hi; v+=nice){
+    g+=`<line x1="${padL}" y1="${Y(v)}" x2="${W-padR}" y2="${Y(v)}" stroke="#eceff4"/>`+
+       `<text x="${padL-6}" y="${Y(v)+4}" text-anchor="end" font-size="10" fill="#6b7385">${Math.round(v/1000)}k</text>`;
+  }
+  for(let y=2026;y<=2029;y++) for(const m of [0,3,6,9]){
+    const t=new Date(y,m,1).getTime(); if(t<t0||t>t1) continue;
+    g+=`<line x1="${X(t)}" y1="${padT}" x2="${X(t)}" y2="${H-padB}" stroke="#f2f4f8"/>`+
+       `<text x="${X(t)}" y="${H-10}" text-anchor="middle" font-size="10" fill="#6b7385">${(m/3+1)}T${String(y).slice(2)}</text>`;
+  }
+  g+=`<rect x="${padL}" y="${Y(margine)}" width="${W-padL-padR}" height="${Math.max(0,H-padB-Y(margine))}" fill="#c0392b" opacity="0.06"/>`;
+  g+=`<line x1="${padL}" y1="${Y(margine)}" x2="${W-padR}" y2="${Y(margine)}" stroke="#b23231" stroke-dasharray="5 4" stroke-width="1"/>`;
+  if(lo<0&&hi>0&&margine!==0) g+=`<line x1="${padL}" y1="${Y(0)}" x2="${W-padR}" y2="${Y(0)}" stroke="#9aa1af" stroke-width="1"/>`;
+  const to=new Date(oggi).getTime();
+  if(to>=t0&&to<=t1){
+    g+=`<line x1="${X(to)}" y1="${padT}" x2="${X(to)}" y2="${H-padB}" stroke="#1d7a3e" stroke-width="1.5" stroke-dasharray="2 3"/>`+
+       `<text x="${X(to)+4}" y="${padT+12}" font-size="10" fill="#1d7a3e">oggi</text>`;
+  }
+  let path='M'+X(new Date(mov[0].d).getTime())+' '+Y(mov[0].cassa);
+  let prev=mov[0].cassa;
+  for(let i=1;i<mov.length;i++){
+    const x=X(new Date(mov[i].d).getTime());
+    path+=' L'+x+' '+Y(prev)+' L'+x+' '+Y(mov[i].cassa);
+    prev=mov[i].cassa;
+  }
+  g+=`<path d="${path}" fill="none" stroke="#1f5fbf" stroke-width="2"/>`;
+  svg.innerHTML=g;
+}
+
+function refresh(){
+  for(const k of Object.keys(S.par)){
+    const el=document.getElementById(k); if(!el) continue;
+    S.par[k]= (k==='rogito'||k==='oggi'||k==='utente') ? el.value : +el.value;
+  }
+  const r=calcola();
+  const okMin=r.minV>=S.par.margine, okFin=r.fin>=S.par.margine, ok=okMin&&okFin;
+  document.getElementById('kVerd').innerHTML='<span class="badge '+(ok?'ok':'ko')+'">'+(ok?'SOSTENIBILE':'NON SOSTENIBILE')+'</span>';
+  document.getElementById('kBox').textContent=r.totBox;
+  document.getElementById('kEff').textContent=eur(r.cassaEff);
+  document.getElementById('kEffN').textContent=r.nEff+' movimenti consolidati al '+dIT(S.par.oggi);
+  const km=document.getElementById('kMin'); km.textContent=eur(r.minV); km.className='v '+(okMin?'ok':'ko');
+  document.getElementById('kMinD').textContent=r.minD?('al '+dIT(r.minD)):'';
+  const kf=document.getElementById('kFin'); kf.textContent=eur(r.fin); kf.className='v '+(okFin?'ok':'ko');
+  drawChart(r.mov,S.par.margine,S.par.oggi);
+  const wb=document.getElementById('warnBox');
+  let w='';
+  if(!ok && S.base.length) w+='<div class="warn">⚠ La cassa scende sotto il margine di sicurezza: aumentare i box venduti (o l\'anticipo), oppure usare «Trova N minimo».</div>';
+  if(r.overdue>0) w+='<div class="warn">⚠ '+r.overdue+' moviment'+(r.overdue===1?'o previsto':'i previsti')+' con data ≤ oggi non ancora consolidat'+(r.overdue===1?'o':'i')+': verificare se avvenut'+(r.overdue===1?'o':'i')+' e spuntare «Eff.» o spostare la data.</div>';
+  wb.innerHTML=w;
+  const ti=document.querySelector('#tabIva tbody'); ti.innerHTML='';
+  for(const l of r.liq){
+    ti.insertAdjacentHTML('beforeend',`<tr><td>${l.per}</td><td>${dIT(l.scad)}</td><td class="num">${eur(l.deb)}</td><td class="num">${eur(l.cred)}</td><td class="num">${eur(l.rip)}</td><td class="num">${l.vers>0.005?eur(l.vers):'—'}</td><td class="num">${l.carry>0.005?eur(l.carry):'—'}</td></tr>`);
+  }
+  const tm=document.querySelector('#tabMov tbody'); tm.innerHTML='';
+  for(const m of r.mov){
+    const st = m.eff ? '<span class="eff">✓ effettivo</span>' : (m.late ? '<span class="late">da riconciliare</span>' : '<span class="prev">previsto</span>');
+    tm.insertAdjacentHTML('beforeend',`<tr${m.late?' class="todo"':''}><td>${dIT(m.d)}</td><td>${m.voce}</td><td>${st}</td><td class="num">${m.m>0?eur(m.m):''}</td><td class="num">${m.m<0?eur(-m.m):''}</td><td class="num ${m.cassa<S.par.margine?'neg':''}">${eur(m.cassa)}</td></tr>`);
+  }
+  renderLog();
+  renderSaveInfo();
+}
+
+document.getElementById('btnMin').onclick=()=>{
+  const N=trovaMinimo();
+  if(N===null){ alert('Nessuna soluzione entro 80 box: rivedere parametri.'); return; }
+  log('«Trova N minimo» → '+N+' box');
+  buildTables();
+  refresh();
+};
+document.getElementById('btnAddQ').onclick=()=>{S.vend.push(['2027-06-15',0,0]); log('Aggiunto trimestre di vendita'); buildTables(); refresh();};
+document.getElementById('btnAddU').onclick=()=>{S.usc.push(['Nuova voce','2027-01-01',0,22,0]); log('Aggiunta nuova uscita'); buildTables(); refresh();};
+document.getElementById('btnAddB').onclick=()=>{S.base.push(['2027-01-01','Nuovo movimento','E',0,22,0]); log('Aggiunto movimento base'); buildTables(); refresh();};
+document.getElementById('btnClearLog').onclick=()=>{S.log=[]; renderLog();};
+document.getElementById('btnSaveCloud').onclick=salvaCloud;
+document.getElementById('btnReload').onclick=()=>caricaCloud(false);
+document.getElementById('btnSetup').onclick=attivaProtezione;
+document.getElementById('btnLogin').onclick=tentaLogin;
+document.getElementById('lockPw').addEventListener('keydown',e=>{ if(e.key==='Enter') tentaLogin(); });
+document.getElementById('btnExp').onclick=()=>{
+  segnaSalvataggio('Scenario esportato (JSON, in chiaro)');
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(S,null,1));
+  a.download='scenario_box_pratolungo.json'; a.click();
+  refresh();
+};
+document.getElementById('btnImp').onclick=()=>document.getElementById('fileImp').click();
+document.getElementById('fileImp').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const d=JSON.parse(rd.result);
+    const u=currentUser;
+    S=d; normalizza();
+    if(u) S.par.utente=u;
+    log('Scenario importato da file');
+    buildTables(); refresh();
+  }catch(err){ alert('File non valido'); } };
+  rd.readAsText(f);
+});
+for(const k of Object.keys(DEF.par)){
+  const el=document.getElementById(k); if(!el||el.disabled) continue;
+  let prev=el.value;
+  el.addEventListener('change',()=>{ log('Parametro '+(el.previousElementSibling?el.previousElementSibling.textContent:k)+': '+prev+' → '+el.value); prev=el.value; refresh(); });
+}
+
+buildTables(); refresh();
+caricaCloud(true);
+</script>
+</body>
+</html>
