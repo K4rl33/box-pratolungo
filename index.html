@@ -153,6 +153,18 @@ tr.todo td{background:#fff6d9}
   <div class="note"><b>Come funziona:</b> chi apre la pagina inserisce solo la propria password: i dati arrivano dal cloud cifrati e vengono sbloccati in locale; la password identifica anche l'utente nei salvataggi e nel log. «Salva su cloud» ricifra e pubblica. Il backup locale (JSON) è in chiaro: conservarlo in un posto sicuro.</div>
 </div>
 
+<details class="card" id="tokenCard">
+  <summary>Token GitHub — aggiornalo se il salvataggio dà «HTTP 401»</summary>
+  <div class="small" style="margin-top:6px">Il token GitHub è custodito dentro i dati cifrati e serve solo per scrivere sul cloud. Quando scade (o viene revocato) il salvataggio fallisce con <b>HTTP 401</b>: qui se ne inserisce uno nuovo senza toccare password e dati.</div>
+  <div class="small" style="margin-top:8px">Come generarne uno nuovo: <b>github.com/settings/personal-access-tokens/new</b> → <i>Only select repositories</i> → <b>box-pratolungo</b> → <i>Repository permissions</i> → <b>Contents: Read and write</b> → scadenza lunga (max 366 giorni, oppure «No expiration») → <i>Generate token</i> e copiare la stringa che inizia con <code>github_pat_</code>.</div>
+  <div class="fields" style="margin-top:12px">
+    <div style="grid-column:1/-1"><label>Nuovo token GitHub</label><input type="password" id="newToken" autocomplete="off" placeholder="github_pat_…"></div>
+  </div>
+  <div class="btns"><button id="btnUpdToken">Verifica e salva il nuovo token</button>
+    <span class="small" id="tokenInfo"></span></div>
+  <div class="small" style="margin-top:6px">Il token viene provato su GitHub prima di essere accettato; se è valido viene ricifrato insieme ai dati e pubblicato sul cloud, quindi vale anche per l'altro utente.</div>
+</details>
+
 <div class="card" id="setupCard" style="display:none">
   <h2 id="setupTitle">Attiva protezione (prima configurazione)</h2>
   <div class="small">I dati verranno cifrati (AES-256) e sbloccabili con due password personali. La password usata all'accesso determina l'utente. Il token GitHub viene custodito dentro i dati cifrati: nessuno dei due dovrà più incollarlo.</div>
@@ -171,7 +183,7 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.2 privata del 10/07/2026';
+const APP_VER = '5.3 privata del 24/08/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
 // base: [data, voce, E/U, imponibile, aliquota%, effettivo 0/1]
@@ -308,6 +320,7 @@ async function tentaLogin(){
       log('Accesso di '+currentUser);
       renderLog();
       setCloudStatus('✓ Dati caricati dal cloud — accesso come '+currentUser+(S.meta.saveT?(' · ultimo salvataggio '+dTime(S.meta.saveT)+' ('+S.meta.saveU+')'):''),true);
+      verificaToken();
       return;
     }catch(e){}
   }
@@ -315,7 +328,7 @@ async function tentaLogin(){
 }
 async function salvaCloud(){
   if(!cloudDoc || !cloudDoc.users || !masterKey){ alert('Prima attivare la protezione (riquadro in fondo alla pagina).'); return; }
-  if(!ghToken){ alert('Token GitHub non presente nei dati cifrati: riattivare la protezione.'); return; }
+  if(!ghToken){ apriPannelloToken('Nessun token presente: incollane uno qui per poter salvare sul cloud.'); alert('Token GitHub non presente nei dati cifrati: inserirne uno nel riquadro «Token GitHub» in fondo alla pagina.'); return false; }
   segnaSalvataggio('Salvato su cloud');
   renderSaveInfo();
   const payload=await aesEnc(masterKey,txe.encode(JSON.stringify({token:ghToken,S})));
@@ -332,7 +345,10 @@ async function salvaCloud(){
       headers:{Authorization:'Bearer '+ghToken,Accept:'application/vnd.github+json','Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
-    if(!r.ok) throw new Error('HTTP '+r.status+(r.status===401?' — token non valido o scaduto':r.status===404?' — repo non trovato o permessi mancanti':''));
+    if(!r.ok){
+      if(r.status===401||r.status===403) apriPannelloToken('Il token GitHub non è più valido: incollane uno nuovo qui sotto.');
+      throw new Error('HTTP '+r.status+(r.status===401?' — token non valido o scaduto: aprire il riquadro «Token GitHub» in fondo alla pagina e inserirne uno nuovo (i dati restano al sicuro)':r.status===404?' — repo non trovato o permessi mancanti':''));
+    }
     const j=await r.json(); remoteSha=j.content.sha;
     cloudDoc.payload=payload;
     if(document.getElementById('chkBackup').checked){
@@ -342,7 +358,80 @@ async function salvaCloud(){
     }
     setCloudStatus('✓ Salvato sul cloud (cifrato) — '+dTime(new Date().toISOString())+' ('+S.par.utente+')',true);
     refresh();
-  }catch(e){ alert('Salvataggio sul cloud non riuscito: '+e.message); }
+    return true;
+  }catch(e){ alert('Salvataggio sul cloud non riuscito: '+e.message); return false; }
+}
+
+// ---------------- token GitHub: scadenza e sostituzione ----------------
+function apriPannelloToken(msg,scrolla){
+  const c=document.getElementById('tokenCard'); if(!c) return;
+  c.open=true;
+  const info=document.getElementById('tokenInfo');
+  if(msg && info){ info.textContent=msg; info.style.color='#b23231'; }
+  if(scrolla!==false) c.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function parseScadenza(s){
+  const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})\s*(UTC|[+-]\d{2}:?\d{2})?/.exec(String(s).trim());
+  if(!m) return null;
+  let iso=m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]+':'+m[6];
+  const z=m[7];
+  if(!z||z==='UTC') iso+='Z';
+  else iso+=(z.length===5? z.slice(0,3)+':'+z.slice(3) : z);
+  const d=new Date(iso);
+  return isNaN(d.getTime())?null:d;
+}
+async function verificaToken(){
+  const info=document.getElementById('tokenInfo');
+  if(!ghToken){ apriPannelloToken('Nessun token presente nei dati cifrati: inserirne uno per poter salvare.'); return false; }
+  let r;
+  try{
+    r=await fetch('https://api.github.com/repos/'+CONFIG.owner+'/'+CONFIG.repo+'?_='+Date.now(),
+      {headers:{Authorization:'Bearer '+ghToken,Accept:'application/vnd.github+json'}});
+  }catch(e){ return null; }
+  if(r.status===401){ apriPannelloToken('⚠ Token scaduto o revocato: il salvataggio sul cloud non funzionerà finché non ne inserisci uno nuovo qui sotto.'); return false; }
+  if(r.status===404){ apriPannelloToken('⚠ Il token non ha accesso al repository '+CONFIG.owner+'/'+CONFIG.repo+' (serve il permesso Contents: Read and write).'); return false; }
+  if(!r.ok) return null;
+  if(!info) return true;
+  const d=parseScadenza(r.headers.get('github-authentication-token-expiration')||'');
+  if(d){
+    const gg=Math.ceil((d.getTime()-Date.now())/86400000);
+    info.textContent='Token valido fino al '+dTime(d.toISOString())+' — '+gg+' giorni.';
+    info.style.color = gg<=15 ? '#a8760a' : 'var(--mut)';
+    if(gg<=15) apriPannelloToken(null,false);
+  } else {
+    info.textContent='Token valido.';
+    info.style.color='var(--mut)';
+  }
+  return true;
+}
+async function aggiornaToken(){
+  const el=document.getElementById('newToken'), info=document.getElementById('tokenInfo');
+  const t=el.value.trim();
+  if(!t){ alert('Incollare il nuovo token GitHub.'); return; }
+  if(!cloudDoc || !cloudDoc.users || !masterKey){ alert('Prima accedere con la propria password.'); return; }
+  info.textContent='Verifica del token su GitHub…'; info.style.color='var(--mut)';
+  let r;
+  try{
+    r=await fetch('https://api.github.com/repos/'+CONFIG.owner+'/'+CONFIG.repo+'?_='+Date.now(),
+      {headers:{Authorization:'Bearer '+t,Accept:'application/vnd.github+json'}});
+  }catch(e){ info.textContent='Rete non disponibile: riprovare.'; info.style.color='#b23231'; return; }
+  if(r.status===401){ info.textContent='✗ Token rifiutato da GitHub (401): controllare di averlo copiato per intero e che non sia già scaduto.'; info.style.color='#b23231'; return; }
+  if(r.status===404){ info.textContent='✗ Token valido ma senza accesso a '+CONFIG.owner+'/'+CONFIG.repo+': rigenerarlo selezionando quel repository con «Contents: Read and write».'; info.style.color='#b23231'; return; }
+  if(!r.ok){ info.textContent='✗ GitHub ha risposto HTTP '+r.status+'.'; info.style.color='#b23231'; return; }
+  const prec=ghToken;
+  ghToken=t;
+  log('Token GitHub aggiornato');
+  const ok=await salvaCloud();
+  if(ok){
+    el.value='';
+    info.textContent='✓ Nuovo token verificato e salvato (cifrato) sul cloud.';
+    info.style.color='var(--ok)';
+    verificaToken();
+  } else {
+    ghToken=prec;
+    info.textContent='✗ Token verificato ma salvataggio non riuscito: riprovare.';
+    info.style.color='#b23231';
+  }
 }
 async function attivaProtezione(){
   const n1=document.getElementById('suNome1').value.trim(), p1=document.getElementById('suPw1').value;
@@ -598,6 +687,8 @@ document.getElementById('btnClearLog').onclick=()=>{S.log=[]; renderLog();};
 document.getElementById('btnSaveCloud').onclick=salvaCloud;
 document.getElementById('btnReload').onclick=()=>caricaCloud(false);
 document.getElementById('btnSetup').onclick=attivaProtezione;
+document.getElementById('btnUpdToken').onclick=aggiornaToken;
+document.getElementById('newToken').addEventListener('keydown',e=>{ if(e.key==='Enter') aggiornaToken(); });
 document.getElementById('btnLogin').onclick=tentaLogin;
 document.getElementById('lockPw').addEventListener('keydown',e=>{ if(e.key==='Enter') tentaLogin(); });
 document.getElementById('btnExp').onclick=()=>{
@@ -627,7 +718,6 @@ for(const k of Object.keys(DEF.par)){
   el.addEventListener('change',()=>{ log('Parametro '+(el.previousElementSibling?el.previousElementSibling.textContent:k)+': '+prev+' → '+el.value); prev=el.value; refresh(); });
 }
 
-buildTables(); refresh();
 document.getElementById('antEur').addEventListener('change',()=>{
   const eurV=+document.getElementById('antEur').value||0;
   const pct=S.par.prezzo>0 ? Math.round(eurV/S.par.prezzo*10000)/100 : 0;
@@ -637,6 +727,8 @@ document.getElementById('antEur').addEventListener('change',()=>{
   log('Anticipo per box: '+eurV.toLocaleString('it-IT')+' € → '+pct+'% (era '+prevPct+'%)');
   refresh();
 });
+
+buildTables(); refresh();
 caricaCloud(true);
 </script>
 </body>
