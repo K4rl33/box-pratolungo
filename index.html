@@ -28,8 +28,9 @@ table{border-collapse:collapse;font-size:12.5px;width:100%}
 th{text-align:left;color:var(--mut);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 td{padding:4px 8px;border-bottom:1px solid #eef0f4;white-space:nowrap;vertical-align:middle}
 td input{padding:4px 6px;font-size:12.5px}
-input.dt{width:145px} input.n1{width:105px} input.n2{width:65px} input.tx{width:100%;min-width:230px}
-select.tp{width:95px;padding:4px 6px;font-size:12.5px}
+input.dt{width:138px} input.n1{width:85px} input.n2{width:62px} input.tx{width:100%;min-width:190px}
+select.tp{width:80px;padding:4px 6px;font-size:12.5px}
+#tabUsc td,#tabBase td,#tabUsc th,#tabBase th{padding-left:5px;padding-right:5px}
 .num{text-align:right}
 .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
 .kpi .card{margin:0;padding:11px 14px}
@@ -100,6 +101,7 @@ tr.todo td{background:#fff6d9}
     <div><label>Data rogito (saldi)</label><input type="date" id="rogito" value="2028-01-15"></div>
     <div><label>Margine sicurezza cassa (€)</label><input type="number" id="margine" value="0" step="5000"></div>
     <div><label>Interesse trim. IVA (%)</label><input type="number" id="intiva" value="1" step="0.1"></div>
+    <div><label>F24 ritenute automatico</label><select id="f24rit"><option value="1">Sì — 16 del mese dopo</option><option value="0">No</option></select></div>
     <div><label>Utente (dalla password)</label><input type="text" id="utente" value="—" disabled></div>
   </div>
   <div class="note">NB: acconti incassati da persone fisiche prima del rogito richiedono fideiussione ex D.lgs 122/2005 — da verificare col notaio. I movimenti con data passata e non consolidati sono evidenziati in giallo (da riconciliare).</div>
@@ -117,14 +119,15 @@ tr.todo td{background:#fff6d9}
 
 <div class="card">
   <h2>Nuove uscite previste</h2>
-  <div class="tw"><table id="tabUsc"><thead><tr><th>Descrizione</th><th>Data</th><th>Imponibile €</th><th>IVA %</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
-  <div class="btns"><button class="sec" id="btnAddU">+ voce</button>
-    <span class="small">Assicurazioni esenti IVA (importo = totale). Voci «con IVA» → imponibile + aliquota: l'IVA pagata va a credito.</span></div>
+  <div class="tw"><table id="tabUsc"><thead><tr><th>Descrizione</th><th>Data</th><th class="num">Imponibile €</th><th class="num">IVA %</th><th class="num">IVA €</th><th class="num">Ritenuta €</th><th class="num">Altre spese €</th><th class="num">Totale banca €</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="btns"><button class="sec" id="btnAddU">+ voce</button></div>
+  <div class="note"><b>Come compilare:</b> in ogni casella il numero che hai, <b>0</b> dove non c'è. <b>Totale banca = Imponibile + IVA + Altre spese − Ritenuta</b>: è il movimento che vedi sul conto, ed è quello che muove la cassa. La <b>IVA %</b> è solo una scorciatoia per riempire l'IVA in euro (che resta sempre sovrascrivibile). Se di una spesa conosci <i>solo</i> il totale del conto, mettilo tutto in <b>Altre spese</b>: la cassa è corretta e l'IVA resta fuori dalla liquidazione finché non arriva la fattura.</div>
 </div>
 
 <details class="card" open><summary>Movimenti appalto / affitti (modificabili)</summary>
-  <div class="tw"><table id="tabBase"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th>Imponibile €</th><th>IVA %</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="tw"><table id="tabBase"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Imponibile €</th><th class="num">IVA %</th><th class="num">IVA €</th><th class="num">Ritenuta €</th><th class="num">Altre spese €</th><th class="num">Totale banca €</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
   <div class="btns"><button class="sec" id="btnAddB">+ movimento</button></div>
+  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).</div>
 </details>
 
 <details class="card"><summary>Liquidazioni IVA trimestrali (per cassa)</summary>
@@ -183,27 +186,48 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.3 privata del 24/08/2026';
+const APP_VER = '5.4 privata del 24/08/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
-// base: [data, voce, E/U, imponibile, aliquota%, effettivo 0/1]
-// usc:  [descrizione, data, imponibile, aliquota%, effettivo]
+// base: [data, voce, E/U, imponibile, aliquota%, effettivo 0/1, IVA €, ritenuta €, altre spese €]
+// usc:  [descrizione, data, imponibile, aliquota%, effettivo, IVA €, ritenuta €, altre spese €]
 // vend: [data, n. box, effettivo]
+// Le posizioni 0..5 (base) e 0..4 (usc) sono quelle delle versioni <= 5.3: i
+// salvataggi vecchi si aprono senza conversioni e i tre nuovi importi vengono
+// ricavati in normalizza() (IVA = imponibile × aliquota, ritenuta e altre = 0),
+// quindi i numeri dello scenario restano identici a prima.
+const B = {imp:3, al:4, eff:5, iva:6, rit:7, alt:8};   // indici riga «base»
+const U = {imp:2, al:3, eff:4, iva:5, rit:6, alt:7};   // indici riga «usc»
 const DEF = {
  base: [], usc: [], vend: [],
- par: {cap0:0, oggi:'2026-07-09', prezzo:65000, ivabox:22, ant:20, rogito:'2028-01-15', margine:0, intiva:1, utente:'—'},
+ par: {cap0:0, oggi:'2026-07-09', prezzo:65000, ivabox:22, ant:20, rogito:'2028-01-15', margine:0, intiva:1, f24rit:1, utente:'—'},
  log: [],
  meta: {saveT:null, saveU:null}
 };
 DEF.par.oggi = oggiLocale();
 let S = JSON.parse(JSON.stringify(DEF));
 
+const r2 = x => Math.round((+x||0)*100)/100;
+const nz = x => (x===undefined||x===null||x==='') ? null : +x;
+function migraRiga(r,M){
+  // IVA dedotta dall'aliquota SENZA arrotondare e importi esistenti non toccati:
+  // uno scenario salvato con le versioni <= 5.3 dà esattamente gli stessi totali.
+  if(nz(r[M.iva])===null) r[M.iva]=(+r[M.imp]||0)*(+r[M.al]||0)/100;
+  if(nz(r[M.rit])===null) r[M.rit]=0;
+  if(nz(r[M.alt])===null) r[M.alt]=0;
+  r[M.imp]=+r[M.imp]||0; r[M.iva]=+r[M.iva]||0; r[M.rit]=+r[M.rit]||0; r[M.alt]=+r[M.alt]||0;
+  r[M.al]=+r[M.al]||0;
+}
+function totRiga(r,M){ return r2((+r[M.imp]||0)+(+r[M.iva]||0)+(+r[M.alt]||0)-(+r[M.rit]||0)); }
+function vuotaRiga(r,M){ return !(+r[M.imp]||0) && !(+r[M.iva]||0) && !(+r[M.rit]||0) && !(+r[M.alt]||0); }
+
 function normalizza(){
-  S.base.forEach(r=>{ if(r.length<6) r[5]=0; });
-  S.usc.forEach(r=>{ if(r.length<5) r[4]=0; });
+  S.base.forEach(r=>{ if(r.length<6) r[5]=0; migraRiga(r,B); });
+  S.usc.forEach(r=>{ if(r.length<5) r[4]=0; migraRiga(r,U); });
   S.vend.forEach(r=>{ if(r.length<3) r[2]=0; });
   if(!S.par.oggi) S.par.oggi='2026-07-09';
   if(!S.par.utente) S.par.utente='—';
+  if(S.par.f24rit===undefined||S.par.f24rit===null) S.par.f24rit=1;
   if(!Array.isArray(S.log)) S.log=[];
   if(!S.meta) S.meta={saveT:null,saveU:null};
 }
@@ -458,28 +482,29 @@ async function attivaProtezione(){
 // ---------------- motore di calcolo ----------------
 function scadIVA(y,q){ return [null,y+'-05-16',y+'-08-20',y+'-11-16',(y+1)+'-03-16'][q]; }
 function quarterOf(ds){ const [y,m]=ds.split('-').map(Number); return {y, q: Math.floor((m-1)/3)+1}; }
+function scadF24(ym){ let [y,m]=ym.split('-').map(Number); m++; if(m>12){m=1;y++;} return y+'-'+String(m).padStart(2,'0')+'-16'; }
 
 function calcola(vend){
   vend = vend || S.vend;
   const p = S.par;
   const inc=[], out=[];
-  for(const [d,v,t,imp,al,eff] of S.base){
-    if(!d||!imp) continue;
-    (t==='E'?inc:out).push({d, voce:v, imp:+imp, iva:+imp*al/100, eff:eff?1:0});
+  for(const r of S.base){
+    if(!r[0]||vuotaRiga(r,B)) continue;
+    (r[2]==='E'?inc:out).push({d:r[0], voce:r[1], imp:+r[B.imp]||0, iva:+r[B.iva]||0, rit:+r[B.rit]||0, alt:+r[B.alt]||0, eff:r[B.eff]?1:0});
   }
-  for(const [desc,d,imp,al,eff] of S.usc){
-    if(!d||!imp) continue;
-    out.push({d, voce:desc, imp:+imp, iva:+imp*al/100, eff:eff?1:0});
+  for(const r of S.usc){
+    if(!r[1]||vuotaRiga(r,U)) continue;
+    out.push({d:r[1], voce:r[0], imp:+r[U.imp]||0, iva:+r[U.iva]||0, rit:+r[U.rit]||0, alt:+r[U.alt]||0, eff:r[U.eff]?1:0});
   }
   let totBox=0;
   for(const [d,n,eff] of vend){
     if(!d||!n) continue; totBox+=+n;
     const imp = n*p.prezzo*p.ant/100;
-    inc.push({d, voce:'Anticipo '+n+' box', imp, iva: imp*p.ivabox/100, eff:eff?1:0});
+    inc.push({d, voce:'Anticipo '+n+' box', imp, iva: imp*p.ivabox/100, rit:0, alt:0, eff:eff?1:0});
   }
   if(totBox>0){
     const imp = totBox*p.prezzo*(1-p.ant/100);
-    inc.push({d:p.rogito, voce:'Saldo '+totBox+' box al rogito', imp, iva: imp*p.ivabox/100, eff:0});
+    inc.push({d:p.rogito, voce:'Saldo '+totBox+' box al rogito', imp, iva: imp*p.ivabox/100, rit:0, alt:0, eff:0});
   }
   const deb={}, cred={};
   for(const m of inc){ const {y,q}=quarterOf(m.d); deb[y*4+q]=(deb[y*4+q]||0)+m.iva; }
@@ -495,9 +520,15 @@ function calcola(vend){
     liq.push({per:q+'T '+y, scad:scadIVA(y,q), deb:D, cred:C, rip, vers:vers+intv, carry});
   }
   const mov=[{d:'2026-07-07',voce:'Capitale iniziale',m:p.cap0,eff:1}];
-  for(const m of inc) mov.push({d:m.d,voce:m.voce,m:m.imp+m.iva,eff:m.eff});
-  for(const m of out) mov.push({d:m.d,voce:m.voce,m:-(m.imp+m.iva),eff:m.eff});
+  const cassaDi = m => m.imp+m.iva+(m.alt||0)-(m.rit||0);   // quello che passa in banca
+  for(const m of inc) mov.push({d:m.d,voce:m.voce,m:cassaDi(m),eff:m.eff});
+  for(const m of out) mov.push({d:m.d,voce:m.voce,m:-cassaDi(m),eff:m.eff});
   for(const l of liq) if(l.vers>0.005) mov.push({d:l.scad,voce:'Versamento IVA '+l.per,m:-l.vers,eff:0});
+  // ritenute d'acconto trattenute sulle uscite: versamento con F24 il 16 del mese successivo
+  const ritM={};
+  for(const m of out) if((m.rit||0)>0.005){ const k=m.d.slice(0,7); ritM[k]=(ritM[k]||0)+m.rit; }
+  if(p.f24rit) for(const k of Object.keys(ritM))
+    mov.push({d:scadF24(k), voce:'F24 ritenute '+k.slice(5)+'/'+k.slice(0,4), m:-ritM[k], eff:0});
   mov.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
   let c=0; for(const m of mov){ c+=m.m; m.cassa=c; }
   const byd=new Map(); for(const m of mov) byd.set(m.d,m.cassa);
@@ -530,15 +561,17 @@ function trovaMinimo(){
 }
 
 // ---------------- UI ----------------
-function inp(val,type,cb,cls,lbl){
+function inp(val,type,cb,cls,lbl,after){
   const i=document.createElement('input'); i.type=type||'text'; i.value=val;
   if(type==='number') i.step='any';
   if(cls) i.className=cls;
   let prev=val;
+  i.setVal=v=>{ i.value=v; prev=v; };            // aggiornamento da un'altra cella: niente log
   i.addEventListener('change',()=>{
     cb(i.value);
     if(lbl) log(lbl+': '+prev+' → '+i.value);
     prev=i.value;
+    if(after) after();
     refresh();
   });
   return i;
@@ -557,6 +590,27 @@ function td(el){ const t=document.createElement('td'); t.append(el); return t; }
 function delBtn(arr,i,lbl){ const b=document.createElement('button'); b.className='del'; b.textContent='✕'; b.title='Elimina riga';
   b.onclick=()=>{arr.splice(i,1); log('Eliminata riga: '+lbl); buildTables(); refresh();}; return b; }
 
+// Le cinque celle degli importi + il totale calcolato (movimento di banca).
+// Imponibile / IVA € / Ritenuta € / Altre spese € sono i dati veri; la IVA % è
+// solo una scorciatoia ed è sempre allineata all'aliquota effettiva della riga.
+function celleImporti(row,M,lbl){
+  const tdTot=document.createElement('td'); tdTot.className='num';
+  tdTot.title='Imponibile + IVA + Altre spese − Ritenuta: è il movimento sul conto';
+  const sync=()=>{
+    iIva.setVal(r2(row[M.iva])); iAl.setVal(row[M.al]); iImp.setVal(r2(row[M.imp]));
+    tdTot.textContent=eur(totRiga(row,M));
+  };
+  const iImp=inp(r2(row[M.imp]),'number',v=>{ row[M.imp]=r2(v); row[M.iva]=r2(row[M.imp]*(+row[M.al]||0)/100); },'n1',lbl+' — imponibile',sync);
+  const iAl =inp(row[M.al],'number',v=>{ row[M.al]=+v||0; row[M.iva]=r2((+row[M.imp]||0)*row[M.al]/100); },'n2',lbl+' — IVA %',sync);
+  const iIva=inp(r2(row[M.iva]),'number',v=>{ row[M.iva]=r2(v); row[M.al]=(+row[M.imp]||0)>0 ? r2(row[M.iva]/row[M.imp]*100) : 0; },'n1',lbl+' — IVA €',sync);
+  const iRit=inp(r2(row[M.rit]),'number',v=>{ row[M.rit]=r2(v); },'n1',lbl+' — ritenuta d’acconto €',sync);
+  const iAlt=inp(r2(row[M.alt]),'number',v=>{ row[M.alt]=r2(v); },'n1',lbl+' — altre spese €',sync);
+  iRit.title='Ritenuta d’acconto trattenuta: non passa in banca oggi, si versa con F24';
+  iAlt.title='Cassa previdenziale, bolli, spese e ogni importo senza IVA a credito';
+  tdTot.textContent=eur(totRiga(row,M));
+  return [td(iImp),td(iAl),td(iIva),td(iRit),td(iAlt),tdTot];
+}
+
 function buildTables(){
   normalizza();
   const tv=document.querySelector('#tabVend tbody'); tv.innerHTML='';
@@ -572,11 +626,11 @@ function buildTables(){
   S.usc.forEach((row,i)=>{
     const tr=document.createElement('tr');
     const lbl='Uscita «'+row[0]+'»';
+    const cells=celleImporti(row,U,lbl);
     tr.append(td(inp(row[0],'text',v=>row[0]=v,'tx',lbl+' — descrizione')),
       td(inp(row[1],'date',v=>row[1]=v,'dt',lbl+' — data')),
-      td(inp(row[2],'number',v=>row[2]=+v,'n1',lbl+' — imponibile')),
-      td(inp(row[3],'number',v=>row[3]=+v,'n2',lbl+' — IVA %')),
-      td(chk(row[4],v=>row[4]=v,lbl)), td(delBtn(S.usc,i,lbl)));
+      ...cells,
+      td(chk(row[U.eff],v=>row[U.eff]=v,lbl)), td(delBtn(S.usc,i,lbl)));
     tu.append(tr);
   });
   const tb=document.querySelector('#tabBase tbody'); tb.innerHTML='';
@@ -589,9 +643,8 @@ function buildTables(){
     sel.addEventListener('change',()=>{row[2]=sel.value; log(lbl+' — tipo: '+(sel.value==='E'?'Entrata':'Uscita')); refresh();});
     tr.append(td(inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data')),
       td(inp(row[1],'text',v=>row[1]=v,'tx',lbl+' — voce')), td(sel),
-      td(inp(row[3],'number',v=>row[3]=+v,'n1',lbl+' — imponibile')),
-      td(inp(row[4],'number',v=>row[4]=+v,'n2',lbl+' — IVA %')),
-      td(chk(row[5],v=>row[5]=v,lbl)), td(delBtn(S.base,i,lbl)));
+      ...celleImporti(row,B,lbl),
+      td(chk(row[B.eff],v=>row[B.eff]=v,lbl)), td(delBtn(S.base,i,lbl)));
     tb.append(tr);
   });
   for(const k of Object.keys(S.par)){ const el=document.getElementById(k); if(el) el.value=S.par[k]; }
@@ -681,8 +734,8 @@ document.getElementById('btnMin').onclick=()=>{
   refresh();
 };
 document.getElementById('btnAddQ').onclick=()=>{S.vend.push(['2027-06-15',0,0]); log('Aggiunto trimestre di vendita'); buildTables(); refresh();};
-document.getElementById('btnAddU').onclick=()=>{S.usc.push(['Nuova voce','2027-01-01',0,22,0]); log('Aggiunta nuova uscita'); buildTables(); refresh();};
-document.getElementById('btnAddB').onclick=()=>{S.base.push(['2027-01-01','Nuovo movimento','E',0,22,0]); log('Aggiunto movimento base'); buildTables(); refresh();};
+document.getElementById('btnAddU').onclick=()=>{S.usc.push(['Nuova voce','2027-01-01',0,22,0,0,0,0]); log('Aggiunta nuova uscita'); buildTables(); refresh();};
+document.getElementById('btnAddB').onclick=()=>{S.base.push(['2027-01-01','Nuovo movimento','E',0,22,0,0,0,0]); log('Aggiunto movimento base'); buildTables(); refresh();};
 document.getElementById('btnClearLog').onclick=()=>{S.log=[]; renderLog();};
 document.getElementById('btnSaveCloud').onclick=salvaCloud;
 document.getElementById('btnReload').onclick=()=>caricaCloud(false);
