@@ -33,8 +33,8 @@ table{border-collapse:collapse;font-size:12.5px;width:100%}
 th{text-align:left;color:var(--mut);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 td{padding:4px 8px;border-bottom:1px solid #eef0f4;white-space:nowrap;vertical-align:middle}
 td input{padding:4px 6px;font-size:12.5px}
-input.dt{width:122px} input.n1{width:78px} input.n2{width:56px} input.tx{width:100%;min-width:150px}
-select.tp{width:104px;padding:4px 4px;font-size:12.5px}
+input.dt{width:118px} input.n1{width:74px} input.n2{width:52px} input.tx{width:100%;min-width:130px}
+select.tp{width:auto;min-width:96px;max-width:170px;padding:4px 2px 4px 4px;font-size:12.5px}
 .salsub{font-size:10.5px;color:var(--acc);margin-top:2px;white-space:nowrap}
 tr.lock .salsub{color:var(--mut)}
 #tabUsc td,#tabBase td,#tabUsc th,#tabBase th{padding-left:4px;padding-right:4px}
@@ -110,7 +110,8 @@ tr.todo td{background:#fff6d9}
     <div><label>Margine sicurezza cassa (€)</label><input type="number" id="margine" value="0" step="5000"></div>
     <div><label>Interesse trim. IVA (%)</label><input type="number" id="intiva" value="1" step="0.1"></div>
     <div><label>F24 ritenute automatico</label><select id="f24rit"><option value="1">Sì — 16 del mese dopo</option><option value="0">No</option></select></div>
-    <div><label>Pagamento SAL (giorni dalla firma)</label><input type="number" id="ggsal" value="45" step="1"></div>
+    <div><label>SAL uscita: pagamento (gg dalla firma)</label><input type="number" id="ggsal" value="45" step="1"></div>
+    <div><label>SAL entrata: incasso (gg dalla firma)</label><input type="number" id="ggsalE" value="15" step="1"></div>
     <div><label>Utente (dalla password)</label><input type="text" id="utente" value="—" disabled></div>
   </div>
   <div class="note">NB: acconti incassati da persone fisiche prima del rogito richiedono fideiussione ex D.lgs 122/2005 — da verificare col notaio. I movimenti con data passata e non consolidati sono evidenziati in giallo (da riconciliare). Cambiando il termine di pagamento dei SAL si ricalcolano le scadenze di tutte le righe con «SAL firmato il», tranne quelle già consolidate.</div>
@@ -136,7 +137,7 @@ tr.todo td{background:#fff6d9}
 <details class="card" open><summary>Movimenti appalto / affitti (modificabili)</summary>
   <div class="tw"><table id="tabBase"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Imponibile €</th><th class="num">IVA %</th><th class="num">IVA €</th><th class="num">Ritenuta €</th><th class="num">Altre spese €</th><th class="num">Totale banca €</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
   <div class="btns"><button class="sec" id="btnAddB">+ movimento</button></div>
-  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo a <b>+45 giorni</b> (termine modificabile nei Parametri): sotto la data compare la scadenza calcolata e in calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
+  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data compare la scadenza calcolata e in calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
 </details>
 
 <details class="card"><summary>Liquidazioni IVA trimestrali (per cassa)</summary>
@@ -195,7 +196,7 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.6 privata del 24/08/2026';
+const APP_VER = '5.7 privata del 24/08/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
 // base: [data, voce, tipo, imponibile, aliquota%, effettivo 0/1, IVA €, ritenuta €, altre spese €, scadenza SAL fissata]
@@ -212,7 +213,7 @@ const B = {imp:3, al:4, eff:5, iva:6, rit:7, alt:8, sal:9};   // indici riga «b
 const U = {imp:2, al:3, eff:4, iva:5, rit:6, alt:7};   // indici riga «usc»
 const DEF = {
  base: [], usc: [], vend: [],
- par: {cap0:0, oggi:'2026-07-09', prezzo:65000, ivabox:22, ant:20, rogito:'2028-01-15', margine:0, intiva:1, f24rit:1, ggsal:45, utente:'—'},
+ par: {cap0:0, oggi:'2026-07-09', prezzo:65000, ivabox:22, ant:20, rogito:'2028-01-15', margine:0, intiva:1, f24rit:1, ggsal:45, ggsalE:15, utente:'—'},
  log: [],
  meta: {saveT:null, saveU:null}
 };
@@ -241,13 +242,18 @@ function addGiorni(ds,n){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 const TIPI = {E:'Entrata', U:'Uscita', SE:'SAL entrata', SU:'SAL uscita'};
+// nel menù il termine è scritto accanto al tipo: «SAL uscita (45 gg)»
+const etichettaTipo = k => isSal(k) ? TIPI[k]+' ('+ggSal(k)+' gg)' : TIPI[k];
 const isSal = t => t==='SE'||t==='SU';
 const isEntrata = t => t==='E'||t==='SE';
-// data in cui il movimento tocca la cassa: per i SAL è la firma + i giorni di
-// pagamento, salvo scadenza già congelata dal consolidamento
-function dataMov(r,gg){
+// giorni fra firma del SAL e cassa: 45 in uscita (pagamento all'impresa),
+// 15 in entrata (incasso)
+function ggSal(t,par){ par=par||S.par; return +(t==='SE' ? par.ggsalE : par.ggsal)||0; }
+// data in cui il movimento tocca la cassa: per i SAL è la firma + quei giorni,
+// salvo scadenza già congelata dal consolidamento
+function dataMov(r,par){
   if(!isSal(r[2])) return r[0];
-  return r[B.sal] || addGiorni(r[0], gg===undefined ? S.par.ggsal : gg);
+  return r[B.sal] || addGiorni(r[0], ggSal(r[2],par));
 }
 function normalizza(){
   S.base.forEach(r=>{
@@ -265,6 +271,7 @@ function normalizza(){
   if(!S.par.utente) S.par.utente='—';
   if(S.par.f24rit===undefined||S.par.f24rit===null) S.par.f24rit=1;
   if(!S.par.ggsal) S.par.ggsal=45;
+  if(S.par.ggsalE===undefined||S.par.ggsalE===null||S.par.ggsalE==='') S.par.ggsalE=15;
   if(!Array.isArray(S.log)) S.log=[];
   if(!S.meta) S.meta={saveT:null,saveU:null};
 }
@@ -527,7 +534,7 @@ function calcola(vend){
   const inc=[], out=[];
   for(const r of S.base){
     if(!r[0]||vuotaRiga(r,B)) continue;
-    (isEntrata(r[2])?inc:out).push({d:dataMov(r,p.ggsal), voce:r[1], imp:+r[B.imp]||0, iva:+r[B.iva]||0, rit:+r[B.rit]||0, alt:+r[B.alt]||0, eff:r[B.eff]?1:0});
+    (isEntrata(r[2])?inc:out).push({d:dataMov(r,p), voce:r[1], imp:+r[B.imp]||0, iva:+r[B.iva]||0, rit:+r[B.rit]||0, alt:+r[B.alt]||0, eff:r[B.eff]?1:0});
   }
   for(const r of S.usc){
     if(!r[1]||vuotaRiga(r,U)) continue;
@@ -568,7 +575,7 @@ function calcola(vend){
     mov.push({d:scadF24(k), voce:'F24 ritenute '+k.slice(5)+'/'+k.slice(0,4), m:-ritM[k], eff:0});
   // SAL: la data di firma/presentazione compare in calendario come promemoria (non muove cassa)
   for(const r of S.base) if(isSal(r[2]) && r[0] && !vuotaRiga(r,B))
-    mov.push({d:r[0], voce:'SAL presentato — '+(r[1]||'')+' ('+(r[2]==='SE'?'incasso':'pagamento')+' a '+(+p.ggsal||45)+' gg)', m:0, eff:0, evt:1});
+    mov.push({d:r[0], voce:'SAL presentato — '+(r[1]||'')+' ('+(r[2]==='SE'?'incasso':'pagamento')+' a '+ggSal(r[2],p)+' gg)', m:0, eff:0, evt:1});
   mov.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
   let c=0; for(const m of mov){ c+=m.m; m.cassa=c; }
   const byd=new Map(); for(const m of mov) byd.set(m.d,m.cassa);
@@ -692,15 +699,16 @@ function buildTables(){
     if(!row[B.eff] && dMov && dMov<=S.par.oggi) tr.classList.add('todo');
     const lbl='Movimento «'+row[1]+'»';
     const sel=document.createElement('select'); sel.className='tp';
-    sel.innerHTML=Object.keys(TIPI).map(k=>'<option value="'+k+'">'+TIPI[k]+'</option>').join('');
+    sel.innerHTML=Object.keys(TIPI).map(k=>'<option value="'+k+'">'+etichettaTipo(k)+'</option>').join('');
     sel.value=TIPI[row[2]]?row[2]:'E';
     sel.addEventListener('change',()=>{
-      const prima=row[2], dopo=sel.value, gg=+S.par.ggsal||0;
+      const prima=row[2], dopo=sel.value;
       // passando da/a SAL la scadenza resta dov'è: si sposta la data di riferimento
-      if(!isSal(prima)&&isSal(dopo)) row[0]=addGiorni(row[0],-gg);
-      else if(isSal(prima)&&!isSal(dopo)){ row[0]=row[B.sal]||addGiorni(row[0],gg); row[B.sal]=''; }
+      // (da SAL a SAL cambia solo il termine: la data di firma non si tocca)
+      if(!isSal(prima)&&isSal(dopo)) row[0]=addGiorni(row[0],-ggSal(dopo));
+      else if(isSal(prima)&&!isSal(dopo)){ row[0]=row[B.sal]||addGiorni(row[0],ggSal(prima)); row[B.sal]=''; }
       row[2]=dopo;
-      log(lbl+' — tipo: '+TIPI[dopo]+(isSal(dopo)!==isSal(prima)
+      log(lbl+' — tipo: '+etichettaTipo(dopo)+(isSal(dopo)!==isSal(prima)
         ? ' — la data '+(row[0]?dIT(row[0]):'—')+' ora è '+(isSal(dopo)?'la firma del SAL':'quella del movimento') : ''));
       buildTables(); refresh();
     });
@@ -851,10 +859,11 @@ for(const k of Object.keys(DEF.par)){
   el.addEventListener('change',()=>{ log('Parametro '+(el.previousElementSibling?el.previousElementSibling.textContent:k)+': '+prev+' → '+el.value); prev=el.value; refresh(); });
 }
 
-document.getElementById('ggsal').addEventListener('change',()=>{
-  S.par.ggsal=+document.getElementById('ggsal').value||0;
-  const n=S.base.filter(r=>isSal(r[2])&&!r[B.sal]).length;
-  if(n) log('Termine SAL portato a '+S.par.ggsal+' giorni: ricalcolate '+n+' scadenze non consolidate');
+for(const id of ['ggsal','ggsalE']) document.getElementById(id).addEventListener('change',()=>{
+  S.par[id]=+document.getElementById(id).value||0;
+  const tipo = id==='ggsal' ? 'SU' : 'SE';
+  const n=S.base.filter(r=>r[2]===tipo && !r[B.sal]).length;
+  if(n) log('Termine '+TIPI[tipo]+' portato a '+S.par[id]+' giorni: ricalcolate '+n+' scadenze non consolidate');
   buildTables(); refresh();
 });
 
