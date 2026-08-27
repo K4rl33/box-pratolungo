@@ -136,7 +136,9 @@ tr.todo td{background:#fff6d9}
 
 <details class="card" open><summary>Movimenti appalto / affitti (modificabili)</summary>
   <div class="tw"><table id="tabBase"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Imponibile €</th><th class="num">IVA %</th><th class="num">IVA €</th><th class="num">Ritenuta €</th><th class="num">Altre spese €</th><th class="num">Totale banca €</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
-  <div class="btns"><button class="sec" id="btnAddB">+ movimento</button></div>
+  <div class="btns"><button class="sec" id="btnAddB">+ movimento</button>
+    <button class="sec" id="btnSalAuto">Classifica le voci SAL</button>
+    <span class="small">Mette il tipo giusto su tutte le righe con «SAL» nel nome, senza spostare incassi e pagamenti.</span></div>
   <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data compare la scadenza calcolata e in calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
 </details>
 
@@ -196,7 +198,7 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.7 privata del 24/08/2026';
+const APP_VER = '5.8 privata del 27/08/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
 // base: [data, voce, tipo, imponibile, aliquota%, effettivo 0/1, IVA €, ritenuta €, altre spese €, scadenza SAL fissata]
@@ -668,6 +670,39 @@ function bloccaRiga(tr,eff){
   tr.querySelectorAll('input:not([type=checkbox]),select,button').forEach(el=>el.disabled=true);
 }
 
+// Classificazione in blocco: le voci che contengono «SAL» diventano SAL entrata
+// o SAL uscita secondo il tipo che hanno già. Le date arretrano del termine, così
+// incassi e pagamenti restano il giorno in cui sono adesso.
+const paroleSAL = v => /\bsal\d*\b/i.test(v||'');
+function classificaSAL(){
+  const daFare = S.base.filter(r=>paroleSAL(r[1]) && !isSal(r[2]) && !r[B.eff]);
+  const bloccate = S.base.filter(r=>paroleSAL(r[1]) && !isSal(r[2]) && r[B.eff]).length;
+  if(!daFare.length){
+    alert(bloccate
+      ? (bloccate===1
+          ? 'Nessuna riga da classificare: l’unica voce SAL rimasta è consolidata. Per cambiarla va prima tolta la spunta «Eff.».'
+          : 'Nessuna riga da classificare: le '+bloccate+' voci SAL rimaste sono consolidate. Per cambiarle va prima tolta la spunta «Eff.».')
+      : 'Nessuna riga da classificare: le voci con «SAL» nel nome sono già a posto.');
+    return;
+  }
+  const e=daFare.filter(r=>r[2]==='E').length, u=daFare.length-e;
+  const msg=(daFare.length===1?'Trovata 1 riga con «SAL» nel nome:\n':'Trovate '+daFare.length+' righe con «SAL» nel nome:\n')
+    + (e?'  • '+e+(e===1?' entrata':' entrate')+' → SAL entrata ('+ggSal('SE')+' gg)\n':'')
+    + (u?'  • '+u+(u===1?' uscita':' uscite')+' → SAL uscita ('+ggSal('SU')+' gg)\n':'')
+    + '\nIncassi e pagamenti NON si spostano: la data della riga arretra del termine e diventa la data di firma, da correggere poi con quella vera.'
+    + (bloccate?'\n\n'+(bloccate===1?'1 riga consolidata non verrà toccata.':bloccate+' righe consolidate non verranno toccate.'):'')
+    + '\n\nProcedere?';
+  if(!confirm(msg)) return;
+  for(const r of daFare){
+    const t = r[2]==='E' ? 'SE' : 'SU';
+    r[0]=addGiorni(r[0],-ggSal(t));
+    r[2]=t;
+  }
+  log('Classificate '+daFare.length+' voci come SAL ('+e+' in entrata, '+u+' in uscita): le date sono diventate quelle di firma');
+  buildTables(); refresh();
+  setCloudStatus('✓ '+daFare.length+(daFare.length===1?' voce classificata':' voci classificate')+' come SAL: controllare le date di firma e salvare su cloud',true);
+}
+
 function buildTables(){
   normalizza();
   const tv=document.querySelector('#tabVend tbody'); tv.innerHTML='';
@@ -823,6 +858,7 @@ document.getElementById('btnMin').onclick=()=>{
 };
 document.getElementById('btnAddQ').onclick=()=>{S.vend.push(['2027-06-15',0,0]); log('Aggiunto trimestre di vendita'); buildTables(); refresh();};
 document.getElementById('btnAddU').onclick=()=>{S.usc.push(['Nuova voce','2027-01-01',0,22,0,0,0,0]); log('Aggiunta nuova uscita'); buildTables(); refresh();};
+document.getElementById('btnSalAuto').onclick=classificaSAL;
 document.getElementById('btnAddB').onclick=()=>{S.base.push(['2027-01-01','Nuovo movimento','E',0,22,0,0,0,0]); log('Aggiunto movimento base'); buildTables(); refresh();};
 document.getElementById('btnClearLog').onclick=()=>{S.log=[]; renderLog();};
 document.getElementById('btnSaveCloud').onclick=salvaCloud;
