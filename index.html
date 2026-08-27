@@ -33,10 +33,13 @@ table{border-collapse:collapse;font-size:12.5px;width:100%}
 th{text-align:left;color:var(--mut);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 td{padding:4px 8px;border-bottom:1px solid #eef0f4;white-space:nowrap;vertical-align:middle}
 td input{padding:4px 6px;font-size:12.5px}
-input.dt{width:118px} input.n1{width:74px} input.n2{width:52px} input.tx{width:100%;min-width:130px}
+input.dt{width:118px} input.n1{width:74px} input.n2{width:52px} input.tx{width:100%;min-width:116px}
 select.tp{width:auto;min-width:96px;max-width:170px;padding:4px 2px 4px 4px;font-size:12.5px}
-.salsub{font-size:10.5px;color:var(--acc);margin-top:2px;white-space:nowrap}
-tr.lock .salsub{color:var(--mut)}
+.salrow{display:flex;align-items:center;gap:3px;margin-top:3px}
+.salpre{font-size:11px;color:var(--acc);font-weight:700}
+input.dtsal{color:var(--acc)}
+input.dtsal.fissata{color:var(--ink);font-weight:600;border-color:#b9c6da}
+tr.lock .salpre{color:var(--mut)}
 #tabUsc td,#tabBase td,#tabUsc th,#tabBase th{padding-left:4px;padding-right:4px}
 #tabBase input.dt,#tabUsc input.dt{padding-left:4px;padding-right:2px}
 .num{text-align:right}
@@ -139,7 +142,7 @@ tr.todo td{background:#fff6d9}
   <div class="btns"><button class="sec" id="btnAddB">+ movimento</button>
     <button class="sec" id="btnSalAuto">Classifica le voci SAL</button>
     <span class="small">Mette il tipo giusto su tutte le righe con «SAL» nel nome, senza spostare incassi e pagamenti.</span></div>
-  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data compare la scadenza calcolata e in calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
+  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data di firma compare la scadenza in azzurro: è calcolata, ma <b>si può scrivere sopra la data reale</b> se il SAL viene pagato o incassato prima o dopo (svuotando quel campo si torna al calcolo automatico). In calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
 </details>
 
 <details class="card"><summary>Liquidazioni IVA trimestrali (per cassa)</summary>
@@ -198,7 +201,7 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.8 privata del 27/08/2026';
+const APP_VER = '5.9 privata del 27/08/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
 // base: [data, voce, tipo, imponibile, aliquota%, effettivo 0/1, IVA €, ritenuta €, altre spese €, scadenza SAL fissata]
@@ -747,17 +750,29 @@ function buildTables(){
         ? ' — la data '+(row[0]?dIT(row[0]):'—')+' ora è '+(isSal(dopo)?'la firma del SAL':'quella del movimento') : ''));
       buildTables(); refresh();
     });
-    let sub=null;
-    const testoSub=()=>{
-      const d=dataMov(row);
-      return (row[2]==='SE'?'→ incasso ':'→ pagamento ')+(d?dIT(d):'—')+(row[B.sal]?' · fissato':'');
+    let iScad=null;
+    const parola = row[2]==='SE' ? 'incasso' : 'pagamento';
+    const aggiornaScad=()=>{
+      if(!iScad) return;
+      iScad.setVal(dataMov(row));
+      iScad.classList.toggle('fissata', !!row[B.sal]);
+      iScad.title = row[B.sal]
+        ? 'Data reale di '+parola+', scritta a mano. Svuota il campo per tornare al calcolo automatico (firma + '+ggSal(row[2])+' giorni).'
+        : 'Scadenza calcolata: firma + '+ggSal(row[2])+' giorni. Se il '+parola+' avviene prima o dopo, scrivi qui la data reale.';
     };
-    const iData=inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data',()=>{ if(sub) sub.textContent=testoSub(); });
+    const iData=inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data',aggiornaScad);
     const cellData=document.createElement('td'); cellData.append(iData);
     if(isSal(row[2])){
       iData.title='Data di firma / presentazione del SAL';
-      sub=document.createElement('div'); sub.className='salsub'; sub.textContent=testoSub();
-      cellData.append(sub);
+      // seconda data: normalmente calcolata, ma si può scrivere quella vera
+      iScad=inp(dataMov(row),'date',v=>{
+        row[B.sal] = (v && v!==addGiorni(row[0],ggSal(row[2]))) ? v : '';
+      },'dt dtsal',lbl+' — data '+parola,aggiornaScad);
+      const wrap=document.createElement('div'); wrap.className='salrow';
+      const pre=document.createElement('span'); pre.className='salpre'; pre.textContent='→';
+      pre.title=parola.charAt(0).toUpperCase()+parola.slice(1);
+      wrap.append(pre,iScad); cellData.append(wrap);
+      aggiornaScad();
     }
     tr.append(cellData,
       td(inp(row[1],'text',v=>row[1]=v,'tx',lbl+' — voce')), td(sel),
