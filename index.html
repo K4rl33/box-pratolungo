@@ -37,6 +37,7 @@ input.dt{width:118px} input.n1{width:74px} input.n2{width:52px} input.tx{width:1
 select.tp{width:auto;min-width:96px;max-width:170px;padding:4px 2px 4px 4px;font-size:12.5px}
 .salrow{display:flex;align-items:center;gap:3px;margin-top:3px}
 .salpre{font-size:11px;color:var(--acc);font-weight:700}
+.boxrow input.n2{width:44px}
 input.dtsal{color:var(--acc)}
 input.dtsal.fissata{color:var(--ink);font-weight:600;border-color:#b9c6da}
 tr.lock .salpre{color:var(--mut)}
@@ -88,7 +89,7 @@ tr.todo td{background:#fff6d9}
 <div class="kpi">
   <div class="card"><div class="l">Verdetto</div><div class="v" id="kVerd"></div></div>
   <div class="card"><div class="l">Cassa effettiva ad oggi</div><div class="v" id="kEff"></div><div class="small" id="kEffN"></div></div>
-  <div class="card"><div class="l">Box venduti (scenario)</div><div class="v" id="kBox"></div></div>
+  <div class="card"><div class="l">Box nello scenario</div><div class="v" id="kBox"></div><div class="small" id="kBoxN"></div></div>
   <div class="card"><div class="l">Cassa minima</div><div class="v" id="kMin"></div><div class="small" id="kMinD"></div></div>
   <div class="card"><div class="l">Cassa finale</div><div class="v" id="kFin"></div></div>
 </div>
@@ -122,12 +123,13 @@ tr.todo td{background:#fff6d9}
 
 <div class="card">
   <h2>Vendite box per trimestre</h2>
-  <div class="tw"><table id="tabVend"><thead><tr><th>Data incasso anticipo</th><th>N. box</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="tw"><table id="tabVend"><thead><tr><th>Data incasso anticipo</th><th>N. box previsti</th><th class="num">di cui venduti</th><th class="num">Da vendere</th><th>Eff.</th><th></th></tr></thead><tbody></tbody></table></div>
   <div class="btns">
     <button class="sec" id="btnAddQ">+ trimestre</button>
     <button id="btnMin">Trova N minimo di box</button>
     <span class="small">Mantiene fissi i trimestri consolidati e distribuisce i box aggiuntivi sugli altri, cercando il minimo che tiene la cassa ≥ margine.</span>
   </div>
+  <div class="note"><b>Box venduti:</b> la tabella è la previsione. Quando arriva un acconto lo si registra nei «Movimenti appalto / affitti» con tipo <b>«Acconto box»</b>, indicando il numero di box e il prezzo imponibile per box. L'app toglie da sola quei box dalla previsione, partendo dal primo trimestre previsto non consolidato (colonna «di cui venduti»), e mette al rogito il saldo dei box venduti: <b>prezzo − acconti incassati</b>, con l'IVA della riga dell'acconto. Non serve più correggere a mano il numero dei box previsti.</div>
 </div>
 
 <div class="card">
@@ -142,7 +144,7 @@ tr.todo td{background:#fff6d9}
   <div class="btns"><button class="sec" id="btnAddB">+ movimento</button>
     <button class="sec" id="btnSalAuto">Classifica le voci SAL</button>
     <span class="small">Mette il tipo giusto su tutte le righe con «SAL» nel nome, senza spostare incassi e pagamenti.</span></div>
-  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data di firma compare la scadenza in azzurro: è calcolata, ma <b>si può scrivere sopra la data reale</b> se il SAL viene pagato o incassato prima o dopo (svuotando quel campo si torna al calcolo automatico). In calendario appare anche la riga azzurra «SAL presentato». Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
+  <div class="note">Stesse regole della tabella sopra. Sulle <b>entrate</b> la ritenuta è quella che il cliente trattiene a te: riduce l'incasso e basta. Sulle <b>uscite</b> è quella che trattieni tu al professionista: riduce il bonifico oggi e torna come <b>F24 ritenute</b> il 16 del mese successivo (movimento generato in automatico, disattivabile nei Parametri).<br><b>SAL:</b> scegliendo nel <b>Tipo</b> «SAL uscita» o «SAL entrata», la <b>Data</b> diventa la data di firma/presentazione del SAL e il movimento di cassa si sposta da solo: <b>+45 giorni</b> per i SAL in uscita (pagamento all'impresa), <b>+15 giorni</b> per quelli in entrata (incasso) — termini modificabili nei Parametri. Sotto la data di firma compare la scadenza in azzurro: è calcolata, ma <b>si può scrivere sopra la data reale</b> se il SAL viene pagato o incassato prima o dopo (svuotando quel campo si torna al calcolo automatico). In calendario appare anche la riga azzurra «SAL presentato».<br><b>Acconto box:</b> per gli acconti dei clienti scegliere il tipo «Acconto box» e scrivere sotto il numero di box e il prezzo imponibile per box; gli importi della riga sono quelli realmente incassati (IVA con l'aliquota del contratto). Per un secondo acconto dello stesso box si usa ancora «Acconto box» con n. box = 0. Cambiando tipo la scadenza non si muove: è la data di firma che viene ricalcolata all'indietro. Consolidando la riga la scadenza resta fissata a quella data anche se in seguito si cambia il termine.</div>
 </details>
 
 <details class="card"><summary>Liquidazioni IVA trimestrali (per cassa)</summary>
@@ -201,11 +203,13 @@ tr.todo td{background:#fff6d9}
 'use strict';
 // ================== CONFIGURAZIONE CLOUD ==================
 const CONFIG={owner:'K4rl33',repo:'box-pratolungo',file:'dati.json',branch:'main'};
-const APP_VER = '5.9 privata del 27/08/2026';
+const APP_VER = '6.0 privata del 12/10/2026';
 function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // ==========================================================
 // base: [data, voce, tipo, imponibile, aliquota%, effettivo 0/1, IVA €, ritenuta €, altre spese €, scadenza SAL fissata]
-//   tipo: 'E' entrata · 'U' uscita · 'SE' SAL in entrata · 'SU' SAL in uscita
+//   tipo: 'E' entrata · 'U' uscita · 'SE' SAL in entrata · 'SU' SAL in uscita · 'AB' acconto box
+//   per gli acconti box: indice 10 = n. box venduti con quell'acconto (0 = acconto
+//   ulteriore di un box già contato), indice 11 = prezzo imponibile per box.
 //   per i SAL la data è quella di firma e il movimento cade a +ggsal giorni;
 //   l'indice 9 congela la scadenza quando la riga viene consolidata.
 // usc:  [descrizione, data, imponibile, aliquota%, effettivo, IVA €, ritenuta €, altre spese €]
@@ -214,7 +218,7 @@ function oggiLocale(){ const d=new Date(); return d.getFullYear()+'-'+String(d.g
 // salvataggi vecchi si aprono senza conversioni e i tre nuovi importi vengono
 // ricavati in normalizza() (IVA = imponibile × aliquota, ritenuta e altre = 0),
 // quindi i numeri dello scenario restano identici a prima.
-const B = {imp:3, al:4, eff:5, iva:6, rit:7, alt:8, sal:9};   // indici riga «base»
+const B = {imp:3, al:4, eff:5, iva:6, rit:7, alt:8, sal:9, nbox:10, prz:11};   // indici riga «base»
 const U = {imp:2, al:3, eff:4, iva:5, rit:6, alt:7};   // indici riga «usc»
 const DEF = {
  base: [], usc: [], vend: [],
@@ -246,11 +250,12 @@ function addGiorni(ds,n){
   d.setDate(d.getDate()+(+n||0));
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
-const TIPI = {E:'Entrata', U:'Uscita', SE:'SAL entrata', SU:'SAL uscita'};
+const TIPI = {E:'Entrata', U:'Uscita', SE:'SAL entrata', SU:'SAL uscita', AB:'Acconto box'};
 // nel menù il termine è scritto accanto al tipo: «SAL uscita (45 gg)»
 const etichettaTipo = k => isSal(k) ? TIPI[k]+' ('+ggSal(k)+' gg)' : TIPI[k];
 const isSal = t => t==='SE'||t==='SU';
-const isEntrata = t => t==='E'||t==='SE';
+const isEntrata = t => t==='E'||t==='SE'||t==='AB';
+const isBox = t => t==='AB';
 // giorni fra firma del SAL e cassa: 45 in uscita (pagamento all'impresa),
 // 15 in entrata (incasso)
 function ggSal(t,par){ par=par||S.par; return +(t==='SE' ? par.ggsalE : par.ggsal)||0; }
@@ -268,6 +273,11 @@ function normalizza(){
     if(r[B.sal] && !isSal(r[2])){            // formato 5.5: colonna «SAL firmato il» separata
       r[2] = r[2]==='E' ? 'SE' : 'SU';
       r[0] = r[B.sal]; r[B.sal]='';
+    }
+    if(isBox(r[2])){
+      if(nz(r[B.nbox])===null) r[B.nbox]=1;
+      if(!(+r[B.prz])) r[B.prz]=+S.par.prezzo||0;
+      r[B.nbox]=+r[B.nbox]||0; r[B.prz]=+r[B.prz]||0;
     }
   });
   S.usc.forEach(r=>{ if(r.length<5) r[4]=0; migraRiga(r,U); });
@@ -533,6 +543,20 @@ function scadIVA(y,q){ return [null,y+'-05-16',y+'-08-20',y+'-11-16',(y+1)+'-03-
 function quarterOf(ds){ const [y,m]=ds.split('-').map(Number); return {y, q: Math.floor((m-1)/3)+1}; }
 function scadF24(ym){ let [y,m]=ym.split('-').map(Number); m++; if(m>12){m=1;y++;} return y+'-'+String(m).padStart(2,'0')+'-16'; }
 
+// I box venduti (righe «Acconto box») si tolgono dalla previsione partendo dal
+// primo trimestre previsto non consolidato; i trimestri consolidati restano.
+function scalaVendite(vend, nVend){
+  const out = vend.map(([d,n,eff])=>({d, orig:+n||0, n:+n||0, eff:eff?1:0, venduti:0}));
+  let resto = nVend;
+  const ord = out.filter(v=>!v.eff && v.d).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  for(const v of ord){
+    if(resto<=0) break;
+    const t=Math.min(v.n,resto); v.n-=t; v.venduti=t; resto-=t;
+  }
+  out.resto = resto;      // venduti oltre la previsione
+  return out;
+}
+
 function calcola(vend){
   vend = vend || S.vend;
   const p = S.par;
@@ -545,15 +569,31 @@ function calcola(vend){
     if(!r[1]||vuotaRiga(r,U)) continue;
     out.push({d:r[1], voce:r[0], imp:+r[U.imp]||0, iva:+r[U.iva]||0, rit:+r[U.rit]||0, alt:+r[U.alt]||0, eff:r[U.eff]?1:0});
   }
-  let totBox=0;
-  for(const [d,n,eff] of vend){
-    if(!d||!n) continue; totBox+=+n;
+  // box già venduti: righe «Acconto box» dei movimenti (importi reali)
+  const acc = S.base.filter(r=>isBox(r[2]) && r[0] && !vuotaRiga(r,B));
+  const nVend = acc.reduce((t,r)=>t+(+r[B.nbox]||0),0);
+  const sc = scalaVendite(vend, nVend);
+  let totBox=nVend, nPrev=0;
+  for(const v of sc){
+    const d=v.d, n=v.n, eff=v.eff;
+    if(!d||!n) continue; totBox+=+n; nPrev+=+n;
     const imp = n*p.prezzo*p.ant/100;
     inc.push({d, voce:'Anticipo '+n+' box', imp, iva: imp*p.ivabox/100, rit:0, alt:0, eff:eff?1:0});
   }
-  if(totBox>0){
-    const imp = totBox*p.prezzo*(1-p.ant/100);
-    inc.push({d:p.rogito, voce:'Saldo '+totBox+' box al rogito', imp, iva: imp*p.ivabox/100, rit:0, alt:0, eff:0});
+  if(nPrev>0){
+    const imp = nPrev*p.prezzo*(1-p.ant/100);
+    inc.push({d:p.rogito, voce:'Saldo '+nPrev+' box previsti al rogito', imp, iva: imp*p.ivabox/100, rit:0, alt:0, eff:0});
+  }
+  // saldo dei box venduti: prezzo di ogni box meno l'imponibile degli acconti
+  // incassati, con l'aliquota IVA della riga dell'acconto
+  if(acc.length){
+    let imp=0, iva=0;
+    for(const r of acc){
+      const s=(+r[B.nbox]||0)*(+r[B.prz]||0)-(+r[B.imp]||0);
+      imp+=s; iva+=s*(+r[B.al]||0)/100;
+    }
+    if(Math.abs(imp)>0.005)
+      inc.push({d:p.rogito, voce:'Saldo '+nVend+' box venduti al rogito (prezzo − acconti)', imp, iva, rit:0, alt:0, eff:0});
   }
   const deb={}, cred={};
   for(const m of inc){ const {y,q}=quarterOf(m.d); deb[y*4+q]=(deb[y*4+q]||0)+m.iva; }
@@ -593,14 +633,15 @@ function calcola(vend){
     else if(m.d<=p.oggi) overdue++;
     m.late = (!m.eff && m.d<=p.oggi);
   }
-  return {mov, liq, totBox, minV, minD, fin:c, cassaEff, nEff, overdue};
+  return {mov, liq, totBox, nVend, nPrev, sc, minV, minD, fin:c, cassaEff, nEff, overdue};
 }
 
 function trovaMinimo(){
   const fixed = S.vend.filter(v=>v[2] && v[1]>0);
   const varDates = S.vend.filter(v=>!v[2]).map(v=>v[0]).filter(Boolean).sort();
   if(!varDates.length) return null;
-  for(let k=0;k<=80;k++){
+  const nVend = S.base.filter(r=>isBox(r[2]) && r[0] && !vuotaRiga(r,B)).reduce((t,r)=>t+(+r[B.nbox]||0),0);
+  for(let k=nVend;k<=80;k++){
     const counts=varDates.map(()=>0);
     for(let j=0;j<k;j++) counts[j%varDates.length]++;
     const trial = fixed.concat(varDates.map((d,i)=>[d,counts[i],0]));
@@ -712,8 +753,11 @@ function buildTables(){
   S.vend.forEach((row,i)=>{
     const tr=document.createElement('tr');
     const lbl='Vendite '+(row[0]?dIT(row[0]):'(senza data)');
+    const cV=document.createElement('td'); cV.className='num cvend';
+    const cR=document.createElement('td'); cR.className='num cresto';
     tr.append(td(inp(row[0],'date',v=>row[0]=v,'dt',lbl+' — data')),
       td(inp(row[1],'number',v=>row[1]=+v,'n2',lbl+' — n. box')),
+      cV, cR,
       td(chk(row[2],v=>row[2]=v,lbl)), td(delBtn(S.vend,i,lbl)));
     bloccaRiga(tr,row[2]);
     tv.append(tr);
@@ -746,6 +790,10 @@ function buildTables(){
       if(!isSal(prima)&&isSal(dopo)) row[0]=addGiorni(row[0],-ggSal(dopo));
       else if(isSal(prima)&&!isSal(dopo)){ row[0]=row[B.sal]||addGiorni(row[0],ggSal(prima)); row[B.sal]=''; }
       row[2]=dopo;
+      if(isBox(dopo)){
+        if(nz(row[B.nbox])===null) row[B.nbox]=1;
+        if(!(+row[B.prz])) row[B.prz]=+S.par.prezzo||0;
+      }
       log(lbl+' — tipo: '+etichettaTipo(dopo)+(isSal(dopo)!==isSal(prima)
         ? ' — la data '+(row[0]?dIT(row[0]):'—')+' ora è '+(isSal(dopo)?'la firma del SAL':'quella del movimento') : ''));
       buildTables(); refresh();
@@ -774,8 +822,20 @@ function buildTables(){
       wrap.append(pre,iScad); cellData.append(wrap);
       aggiornaScad();
     }
+    const cellTipo=td(sel);
+    if(isBox(row[2])){
+      // n. box e prezzo per box: servono a scalare la previsione e a calcolare il saldo al rogito
+      const iN=inp(row[B.nbox],'number',v=>row[B.nbox]=Math.max(0,Math.round(+v||0)),'n2',lbl+' — n. box venduti');
+      iN.title='Box venduti con questo acconto (0 se è un ulteriore acconto di un box già contato)';
+      const iP=inp(row[B.prz],'number',v=>row[B.prz]=+v||0,'n1',lbl+' — prezzo imponibile per box');
+      iP.title='Prezzo di vendita imponibile per box: il saldo al rogito è prezzo − acconto';
+      const wrap=document.createElement('div'); wrap.className='salrow boxrow';
+      const l1=document.createElement('span'); l1.className='salpre'; l1.textContent='n.';
+      const l2=document.createElement('span'); l2.className='salpre'; l2.textContent='× €';
+      wrap.append(l1,iN,l2,iP); cellTipo.append(wrap);
+    }
     tr.append(cellData,
-      td(inp(row[1],'text',v=>row[1]=v,'tx',lbl+' — voce')), td(sel),
+      td(inp(row[1],'text',v=>row[1]=v,'tx',lbl+' — voce')), cellTipo,
       ...celleImporti(row,B,lbl),
       td(chk(row[B.eff],v=>{ row[B.eff]=v; if(isSal(row[2])) row[B.sal]= v ? dataMov(row) : ''; },lbl)),
       td(delBtn(S.base,i,lbl)));
@@ -835,6 +895,12 @@ function refresh(){
   const okMin=r.minV>=S.par.margine, okFin=r.fin>=S.par.margine, ok=okMin&&okFin;
   document.getElementById('kVerd').innerHTML='<span class="badge '+(ok?'ok':'ko')+'">'+(ok?'SOSTENIBILE':'NON SOSTENIBILE')+'</span>';
   document.getElementById('kBox').textContent=r.totBox;
+  document.getElementById('kBoxN').textContent=r.nVend+' venduti (acconti) · '+(r.totBox-r.nVend)+' da vendere';
+  document.querySelectorAll('#tabVend tbody tr').forEach((tr,i)=>{
+    const v=r.sc[i]; if(!v) return;
+    tr.querySelector('.cvend').textContent = v.venduti ? v.venduti : '—';
+    tr.querySelector('.cresto').textContent = v.eff ? '—' : v.n;
+  });
   document.getElementById('kEff').textContent=eur(r.cassaEff);
   document.getElementById('kEffN').textContent=r.nEff+' movimenti consolidati al '+dIT(S.par.oggi);
   const km=document.getElementById('kMin'); km.textContent=eur(r.minV); km.className='v '+(okMin?'ok':'ko');
@@ -846,6 +912,7 @@ function refresh(){
   const wb=document.getElementById('warnBox');
   let w='';
   if(!ok && S.base.length) w+='<div class="warn">⚠ La cassa scende sotto il margine di sicurezza: aumentare i box venduti (o l\'anticipo), oppure usare «Trova N minimo».</div>';
+  if(r.sc.resto>0) w+='<div class="warn">⚠ Gli acconti registrano '+r.nVend+' box venduti, '+r.sc.resto+' in più di quelli previsti nei trimestri non consolidati: aggiornare la previsione.</div>';
   if(r.overdue>0) w+='<div class="warn">⚠ '+r.overdue+' moviment'+(r.overdue===1?'o previsto':'i previsti')+' con data ≤ oggi non ancora consolidat'+(r.overdue===1?'o':'i')+': verificare se avvenut'+(r.overdue===1?'o':'i')+' e spuntare «Eff.» o spostare la data.</div>';
   wb.innerHTML=w;
   const ti=document.querySelector('#tabIva tbody'); ti.innerHTML='';
